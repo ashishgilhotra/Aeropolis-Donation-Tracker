@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aeropolis Phase 2 - Donation Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f5f9;
+        }
+        .grid-cols-15 {
+            grid-template-columns: repeat(15, minmax(0, 1fr));
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.show-modal {
+            display: flex;
+        }
+        .modal-content {
+            background-color: #ffffff;
+            margin: auto;
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            animation: fadeIn 0.3s ease-out;
+            border: 1px solid #e2e8f0;
+        }
+        .close-button {
+            position: absolute;
+            top: 1rem;
+            right: 1.5rem;
+            font-size: 2rem;
+            font-weight: bold;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: #475569;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .toggle-btn {
+            background-color: #e2e8f0;
+            color: #475569;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            border: none;
+            outline: none;
+        }
+        .toggle-btn:hover {
+            background-color: #cbd5e1;
+        }
+        .toggle-btn.active {
+            background-color: #16a34a;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .toggle-btn.active:hover {
+            background-color: #15803d;
+        }
+        /* Smaller pill used by the status filter, so it reads as secondary to the tabs */
+        .filter-btn {
+            background-color: #e2e8f0;
+            color: #475569;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 0.35rem 0.9rem;
+            border-radius: 9999px;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            border: none;
+        }
+        .filter-btn:hover { background-color: #cbd5e1; }
+        .filter-btn.active {
+            background-color: #0f172a;
+            color: white;
+        }
+        /* A tile that fails the current filter stays in place (so the grid keeps its
+           shape and you can still see WHERE a flat is) but recedes visually. */
+        .tile-dimmed {
+            opacity: 0.15;
+            filter: grayscale(1);
+        }
+        .tile-match {
+            outline: 3px solid #0f172a;
+            outline-offset: 1px;
+            z-index: 5;
+        }
+        /* On phones the 15-wide grid is unreadably small, so let it scroll but give
+           each tile a usable minimum size. */
+        @media (max-width: 768px) {
+            .grid-cols-15 { grid-template-columns: repeat(15, minmax(44px, 1fr)); }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-12">
+
+    <div class="max-w-7xl mx-auto bg-white p-4 md:p-8 rounded-3xl shadow-2xl">
+
+        <div class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-slate-800 tracking-tight mb-4">Donation Tracker</h1>
+            <p class="text-base md:text-lg font-light text-slate-600 mb-2">
+                <span id="headline-label">Total Donations Received</span> as of <span id="current-date" class="font-semibold"></span>:
+                <span id="total-amount" class="text-2xl md:text-3xl font-extrabold text-lime-600 ml-2">₹0</span>
+            </p>
+            <p class="text-base font-light text-slate-600 mt-2">
+                <span id="count-prefix">Donated</span>: <span id="donation-count" class="font-bold text-lime-600">0</span> of <span id="total-units" class="font-bold text-slate-600">0</span> <span id="unit-label">Apartments</span>
+            </p>
+            <!-- Progress toward the full-collection target -->
+            <div class="mt-5 max-w-xl mx-auto">
+                <div class="w-full bg-slate-200 rounded-full h-4 overflow-hidden">
+                    <div id="progress-bar" class="bg-lime-500 h-4 rounded-full transition-all duration-700 ease-out" style="width: 0%"></div>
+                </div>
+                <p id="progress-label" class="text-xs text-slate-500 mt-2"></p>
+            </div>
+
+            <p class="text-sm font-light text-slate-400 mt-4">
+                Last updated: <span id="last-updated-time">—</span>
+                <button id="refresh-btn" class="ml-2 text-lime-600 hover:text-lime-700 font-semibold underline underline-offset-2">Refresh now</button>
+            </p>
+            <p id="stale-notice" class="text-xs text-amber-600 mt-1 hidden"></p>
+
+            <div class="mt-6 flex flex-col items-center space-y-2">
+                <span class="font-semibold text-slate-600">Select Donation Type:</span>
+                <div class="inline-flex flex-wrap justify-center rounded-full bg-slate-200 p-1 gap-1">
+                    <button id="toggle-summary" class="toggle-btn active">Summary</button>
+                    <button id="toggle-E" class="toggle-btn">Wing E</button>
+                    <button id="toggle-D" class="toggle-btn">Wing D</button>
+                    <button id="toggle-other" class="toggle-btn">Other</button>
+                    <button id="toggle-expenses" class="toggle-btn">Expenses</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="summary-content-container" class="mb-10">
+            <h2 class="text-2xl font-bold text-slate-800 mb-4 text-center">Overall status</h2>
+            <div class="max-w-xl mx-auto mb-10 overflow-hidden rounded-2xl border border-slate-200">
+                <table class="w-full">
+                    <tbody>
+                        <tr class="border-b border-slate-100">
+                            <th scope="row" class="px-4 py-4 sm:px-5 text-left text-sm sm:text-base font-semibold text-slate-700">Total Donation</th>
+                            <td id="status-donation" class="px-4 py-4 sm:px-5 text-right text-lg sm:text-xl font-bold text-lime-600 whitespace-nowrap">₹0</td>
+                        </tr>
+                        <tr class="border-b border-slate-100">
+                            <th scope="row" class="px-4 py-4 sm:px-5 text-left text-sm sm:text-base font-semibold text-slate-700">
+                                Total Expenses (Ganpati)
+                                <span id="status-due" class="block text-xs font-normal text-amber-600 mt-1"></span>
+                            </th>
+                            <td id="status-expenses" class="px-4 py-4 sm:px-5 text-right text-lg sm:text-xl font-bold text-rose-600 align-top whitespace-nowrap">₹0</td>
+                        </tr>
+                        <tr class="bg-lime-50">
+                            <th scope="row" class="px-4 py-4 sm:px-5 text-left text-sm sm:text-base font-bold text-slate-800">Amount Left</th>
+                            <td id="status-left" class="px-4 py-4 sm:px-5 text-right text-xl sm:text-2xl font-extrabold text-lime-700 whitespace-nowrap">₹0</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h2 class="text-2xl font-bold text-slate-800 mb-4 text-center">Donations</h2>
+            <div class="flex flex-wrap justify-center gap-4 mb-8">
+                <div class="p-4 bg-gray-100 rounded-xl shadow-sm w-full sm:w-auto min-w-[150px] text-center">
+                    <p class="text-sm font-semibold text-slate-700">D Wing Total</p>
+                    <p id="total-d-wing" class="text-xl font-bold text-slate-600">₹0</p>
+                    <p id="count-d-wing" class="text-xs text-slate-400 mt-1"></p>
+                </div>
+                <div class="p-4 bg-gray-100 rounded-xl shadow-sm w-full sm:w-auto min-w-[150px] text-center">
+                    <p class="text-sm font-semibold text-slate-700">E Wing Total</p>
+                    <p id="total-e-wing" class="text-xl font-bold text-slate-600">₹0</p>
+                    <p id="count-e-wing" class="text-xs text-slate-400 mt-1"></p>
+                </div>
+                <div class="p-4 bg-gray-100 rounded-xl shadow-sm w-full sm:w-auto min-w-[150px] text-center">
+                    <p class="text-sm font-semibold text-slate-700">Other Total</p>
+                    <p id="total-other" class="text-xl font-bold text-slate-600">₹0</p>
+                    <p id="count-other" class="text-xs text-slate-400 mt-1"></p>
+                </div>
+            </div>
+
+            <div id="collector-summary-section" class="mb-10 text-center">
+                <h2 class="text-2xl font-bold text-slate-800 mb-1">Collection Summary by Collector</h2>
+                <p class="text-xs text-slate-400 mb-4">Tap a collector to see the flats they collected from.</p>
+                <div id="collector-summary-container" class="flex flex-wrap justify-center gap-4">
+                </div>
+            </div>
+
+            <div id="recent-section" class="mb-4">
+                <h2 class="text-2xl font-bold text-slate-800 mb-4 text-center">Recent Donations</h2>
+                <div id="recent-list" class="max-w-2xl mx-auto divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden">
+                </div>
+            </div>
+        </div>
+
+        <!-- Search / status filter, shown on the two wing tabs -->
+        <div id="filter-bar" class="hidden mb-4 flex flex-col md:flex-row md:items-center justify-center gap-3">
+            <input id="search-input" type="search" inputmode="search" placeholder="Search flat number or name…"
+                   class="w-full md:w-72 px-4 py-2 rounded-full border border-slate-300 focus:border-lime-500 focus:ring-2 focus:ring-lime-200 outline-none text-sm" />
+            <div class="flex justify-center gap-1">
+                <button id="filter-all" class="filter-btn active">All</button>
+                <button id="filter-donated" class="filter-btn">Donated</button>
+                <button id="filter-pending" class="filter-btn">Pending</button>
+            </div>
+            <div id="collector-chip" class="hidden">
+                <button id="collector-chip-btn" class="filter-btn active bg-lime-600 hover:bg-lime-700"></button>
+            </div>
+        </div>
+        <p id="filter-count" class="hidden text-center text-sm text-slate-500 mb-3"></p>
+
+        <!-- Per-floor progress, shown on the two wing tabs -->
+        <div id="floor-breakdown-wrapper" class="hidden mb-6">
+            <h3 class="text-sm font-semibold text-slate-600 mb-2 text-center">Progress by floor</h3>
+            <div id="floor-breakdown" class="flex flex-wrap justify-center gap-2"></div>
+        </div>
+
+        <div id="other-list-container" class="hidden mb-10">
+            <h2 class="text-2xl font-bold text-slate-800 mb-4 text-center">Other Donations</h2>
+            <div id="other-list"></div>
+        </div>
+
+        <div id="expense-list-container" class="hidden mb-10">
+            <h2 class="text-2xl font-bold text-slate-800 mb-4 text-center">Ganpati Expenses</h2>
+            <div class="flex flex-wrap justify-center gap-4 mb-8">
+                <div class="p-4 bg-rose-50 rounded-xl shadow-sm w-full sm:w-auto min-w-[150px] text-center border border-rose-100">
+                    <p class="text-sm font-semibold text-slate-700">Actual spent</p>
+                    <p id="expense-actual" class="text-xl font-bold text-rose-600">₹0</p>
+                </div>
+                <div class="p-4 bg-amber-50 rounded-xl shadow-sm w-full sm:w-auto min-w-[150px] text-center border border-amber-100">
+                    <p class="text-sm font-semibold text-slate-700">Still to pay</p>
+                    <p id="expense-due" class="text-xl font-bold text-amber-600">₹0</p>
+                </div>
+                <div class="p-4 bg-lime-50 rounded-xl shadow-sm w-full sm:w-auto min-w-[150px] text-center border border-lime-100">
+                    <p class="text-sm font-semibold text-slate-700">Left after expenses</p>
+                    <p id="expense-balance" class="text-xl font-bold text-lime-700">₹0</p>
+                    <p class="text-xs text-slate-400 mt-1">Donations minus actual spent</p>
+                </div>
+            </div>
+            <div id="expense-list"></div>
+        </div>
+
+        <div id="loading-spinner" class="flex items-center justify-center space-x-2 text-slate-400 mb-8 hidden">
+            <svg class="animate-spin h-6 w-6 text-lime-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Fetching data from the spreadsheet...</span>
+        </div>
+
+        <div id="apartment-grid-wrapper" class="overflow-x-auto w-full hidden">
+            <div id="apartment-grid" class="grid grid-cols-15 gap-1 border-4 border-lime-200 p-2 rounded-3xl min-w-max">
+            </div>
+        </div>
+
+    </div>
+
+    <div id="message-box" class="fixed inset-x-0 bottom-4 flex justify-center hidden px-4">
+        <div class="bg-red-500 text-white p-4 rounded-lg shadow-lg">
+            <p id="message-text"></p>
+        </div>
+    </div>
+
+    <div id="info-modal" class="modal">
+        <div class="modal-content relative">
+            <span class="close-button" onclick="closeModal()">&times;</span>
+            <h2 id="modal-title" class="text-3xl font-bold text-slate-800 mb-4">Apartment Details</h2>
+            <div id="modal-body" class="text-slate-700">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Use a self-invoking function to keep variables out of the global scope
+        (async function() {
+            // --- Configuration ---
+            // Everything that changes year to year lives in this one block.
+            const CONFIG = {
+                // From File -> Share -> Publish to web. This is the ".../pub" base,
+                // NOT the /d/<id>/edit URL -- plain link-sharing does not serve CSV.
+                publishedBaseUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQUH8CTOz24J4IsvVnGmUosM53x_XpaN2CxBZYmCKbtvXf4s7rn8TIsZrNh0MO6XFjxCEYQrHI7sa5L/pub',
+
+                // Tab GIDs, from the #gid= fragment when each tab is selected.
+                gids: {
+                    D: '0',
+                    E: '1982817405',
+                    other: '161621158',
+                    expenses: '150660130' // "Responsbility & Expense Ganpati"
+                },
+
+                totalFloors: 11,
+                flatsPerFloor: 15,
+
+                // Used only for the "potential" figure on the progress bar.
+                targetPerFlat: 1500,
+
+                updateInterval: 5 * 60 * 1000, // 5 minutes
+                cacheKey: 'aap-donation-tracker-v1'
+            };
+
+            const totalFloors = CONFIG.totalFloors;
+            const flatsPerFloor = CONFIG.flatsPerFloor;
+            const flatsPerWing = totalFloors * flatsPerFloor;
+
+            // Google serves CORS headers on the published-CSV endpoint, so we fetch it
+            // directly -- no third-party proxy in the path. Note this only works over
+            // http(s); opening the file as file:// sends Origin: null, which Google's
+            // redirect hop rejects.
+            function sheetCsvUrl(gid) {
+                return `${CONFIG.publishedBaseUrl}?gid=${encodeURIComponent(gid)}`
+                     + `&single=true&output=csv`;
+            }
+
+            // --- Element handles ---
+            const gridContainer = document.getElementById('apartment-grid');
+            const apartmentGridWrapper = document.getElementById('apartment-grid-wrapper');
+            const loadingSpinner = document.getElementById('loading-spinner');
+            const messageBox = document.getElementById('message-box');
+            const messageText = document.getElementById('message-text');
+            const infoModal = document.getElementById('info-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalBody = document.getElementById('modal-body');
+            const totalAmountEl = document.getElementById('total-amount');
+            const currentDateEl = document.getElementById('current-date');
+            const lastUpdatedTimeEl = document.getElementById('last-updated-time');
+            const refreshBtn = document.getElementById('refresh-btn');
+            const staleNotice = document.getElementById('stale-notice');
+            const toggleButtonE = document.getElementById('toggle-E');
+            const toggleButtonD = document.getElementById('toggle-D');
+            const toggleButtonOther = document.getElementById('toggle-other');
+            const toggleButtonExpenses = document.getElementById('toggle-expenses');
+            const toggleButtonSummary = document.getElementById('toggle-summary');
+            const headlineLabel = document.getElementById('headline-label');
+            const countPrefix = document.getElementById('count-prefix');
+            const statusDonationEl = document.getElementById('status-donation');
+            const statusExpensesEl = document.getElementById('status-expenses');
+            const statusDueEl = document.getElementById('status-due');
+            const statusLeftEl = document.getElementById('status-left');
+            const donationCountEl = document.getElementById('donation-count');
+            const totalUnitsEl = document.getElementById('total-units');
+            const unitLabelEl = document.getElementById('unit-label');
+            const progressBar = document.getElementById('progress-bar');
+            const progressLabel = document.getElementById('progress-label');
+
+            const collectorSummaryContainer = document.getElementById('collector-summary-container');
+            const otherListContainer = document.getElementById('other-list-container');
+            const otherList = document.getElementById('other-list');
+            const expenseListContainer = document.getElementById('expense-list-container');
+            const expenseList = document.getElementById('expense-list');
+            const expenseActualEl = document.getElementById('expense-actual');
+            const expenseDueEl = document.getElementById('expense-due');
+            const expenseBalanceEl = document.getElementById('expense-balance');
+            const summaryContentContainer = document.getElementById('summary-content-container');
+            const totalDWingEl = document.getElementById('total-d-wing');
+            const totalEWingEl = document.getElementById('total-e-wing');
+            const totalOtherEl = document.getElementById('total-other');
+            const countDWingEl = document.getElementById('count-d-wing');
+            const countEWingEl = document.getElementById('count-e-wing');
+            const countOtherEl = document.getElementById('count-other');
+            const recentList = document.getElementById('recent-list');
+
+            const filterBar = document.getElementById('filter-bar');
+            const filterCount = document.getElementById('filter-count');
+            const searchInput = document.getElementById('search-input');
+            const filterAllBtn = document.getElementById('filter-all');
+            const filterDonatedBtn = document.getElementById('filter-donated');
+            const filterPendingBtn = document.getElementById('filter-pending');
+            const collectorChip = document.getElementById('collector-chip');
+            const collectorChipBtn = document.getElementById('collector-chip-btn');
+            const floorBreakdownWrapper = document.getElementById('floor-breakdown-wrapper');
+            const floorBreakdown = document.getElementById('floor-breakdown');
+
+            // --- Application state ---
+            let dataMap = new Map();          // flat number -> row, for the active wing
+            let currentTab = 'summary';       // 'summary' | 'E' | 'D' | 'other' | 'expenses'
+            let sheetData = { D: [], E: [], other: [], expenses: [] };
+            let lastGoodAt = null;            // Date of the last successful fetch
+            let searchTerm = '';
+            let statusFilter = 'all';         // 'all' | 'donated' | 'pending'
+            let activeCollector = null;       // { key, name } or null
+
+            // --- Helper Functions ---
+            function showMessage(message, type = 'error') {
+                messageText.textContent = message;
+                messageBox.classList.remove('hidden');
+                if (type === 'success') {
+                    messageBox.firstElementChild.classList.remove('bg-red-500');
+                    messageBox.firstElementChild.classList.add('bg-green-500');
+                } else {
+                    messageBox.firstElementChild.classList.remove('bg-green-500');
+                    messageBox.firstElementChild.classList.add('bg-red-500');
+                }
+                setTimeout(() => messageBox.classList.add('hidden'), 5000);
+            }
+
+            function rupees(amount) {
+                return `₹${Math.round(amount).toLocaleString('en-IN')}`;
+            }
+
+            /**
+             * Parses CSV into rows of cells, honouring RFC-4180 quoting so that a value
+             * containing a comma ("Sharma, Rajesh") or a newline does not shift columns.
+             */
+            function parseCsv(csvText) {
+                const rows = [];
+                let row = [];
+                let field = '';
+                let inQuotes = false;
+
+                const text = csvText.replace(/\r\n?/g, '\n');
+
+                for (let i = 0; i < text.length; i++) {
+                    const char = text[i];
+
+                    if (inQuotes) {
+                        if (char === '"') {
+                            if (text[i + 1] === '"') { field += '"'; i++; } // escaped quote
+                            else { inQuotes = false; }
+                        } else {
+                            field += char;
+                        }
+                    } else if (char === '"') {
+                        inQuotes = true;
+                    } else if (char === ',') {
+                        row.push(field); field = '';
+                    } else if (char === '\n') {
+                        row.push(field); field = '';
+                        rows.push(row); row = [];
+                    } else {
+                        field += char;
+                    }
+                }
+                row.push(field);
+                rows.push(row);
+
+                return rows;
+            }
+
+            /**
+             * The sheet's column headings change from year to year and even between tabs
+             * (D wing has a stray unnamed column, "Other" uses different names entirely).
+             * Map whatever the sheet says onto the stable names the rest of this page uses.
+             */
+            const HEADER_ALIASES = {
+                'flat number': 'FlatNumber',
+                'flatnumber': 'FlatNumber',
+                'flat no': 'FlatNumber',
+                'flat': 'FlatNumber',
+                'name': 'OwnerName',
+                'owner name': 'OwnerName',
+                'ownername': 'OwnerName',
+                'amount': 'Amount',
+                'payment mode': 'Mode',
+                'mode': 'Mode',
+                'amount with': 'Mode',
+                'collected by': 'CollectedBy',
+                'collectedby': 'CollectedBy',
+                'collector': 'CollectedBy',
+                'date': 'Date',
+                'payment date': 'Date',
+                'name of vendor/flat': 'Vendor',
+                'vendor': 'Vendor',
+                'vargani type': 'Type',
+                'type': 'Type',
+                's no': 'SNo',
+                'sno': 'SNo',
+                'sr no': 'SNo',
+                'work description': 'Description',
+                'responsible person': 'Responsible',
+                'proposed expense': 'Proposed',
+                'actual expense': 'Actual',
+                'spend by': 'SpendBy',
+                'booking status': 'BookingStatus',
+                'to be paid': 'ToBePaid',
+                'vendor name': 'VendorName',
+                'vendor contact number': 'VendorContact'
+            };
+
+            function canonicalHeader(rawHeader) {
+                const key = rawHeader.trim().toLowerCase().replace(/\s+/g, ' ');
+                return HEADER_ALIASES[key] || null; // unnamed/unknown columns are dropped
+            }
+
+            function csvToJson(csvText) {
+                const rows = parseCsv(csvText);
+                if (rows.length === 0) return [];
+
+                const headers = rows[0].map(canonicalHeader);
+
+                // Surface renamed columns instead of silently dropping them -- this is
+                // the failure mode when next year's sheet uses different headings.
+                rows[0].forEach((raw, i) => {
+                    if (raw.trim() !== '' && !headers[i]) {
+                        console.warn(`Unrecognised column "${raw.trim()}" -- it will be ignored. Add it to HEADER_ALIASES.`);
+                    }
+                });
+
+                const result = [];
+                for (let i = 1; i < rows.length; i++) {
+                    const values = rows[i];
+                    if (values.every(v => v.trim() === '')) continue;
+
+                    const obj = {};
+                    headers.forEach((header, j) => {
+                        if (header) obj[header] = (values[j] || '').trim();
+                    });
+                    result.push(obj);
+                }
+                return result;
+            }
+
+            /**
+             * Amounts are hand-typed, so they arrive as "1500", "1,500" or "₹1500".
+             */
+            function parseAmount(value) {
+                if (value === undefined || value === null) return 0;
+                const cleaned = String(value).replace(/[^0-9.\-]/g, '');
+                const amount = parseFloat(cleaned);
+                return isNaN(amount) ? 0 : amount;
+            }
+
+            function hasAmount(item) {
+                return parseAmount(item.Amount) > 0;
+            }
+
+            /**
+             * The sheets carry a trailing "Grand Total" row. Counting it would double
+             * every wing total, so drop summary rows and rows with no identifier.
+             */
+            function isDataRow(item) {
+                const label = `${item.OwnerName || ''}${item.Vendor || ''}${item.Description || ''}`.trim().toLowerCase();
+                if (/^(grand\s*)?total\b/.test(label)) return false;
+
+                // Expense rows are identified by the work description. The sheet's
+                // trailing total has amounts but no description, so it drops out here.
+                if ('Description' in item) return (item.Description || '').trim() !== '';
+                if ('FlatNumber' in item) return (item.FlatNumber || '').trim() !== '';
+                if ('Vendor' in item) return (item.Vendor || '').trim() !== '';
+                return true;
+            }
+
+            function escapeHtml(value) {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            }
+
+            /**
+             * Payment modes are typed freehand: "upi", "Upi", "upi." and "NB" all appear.
+             * Normalise for display without touching the sheet.
+             */
+            const MODE_LABELS = {
+                upi: 'UPI', gpay: 'UPI', googlepay: 'UPI', phonepe: 'UPI', paytm: 'UPI',
+                nb: 'Net Banking', netbanking: 'Net Banking', neft: 'Net Banking',
+                imps: 'Net Banking', rtgs: 'Net Banking', banktransfer: 'Net Banking',
+                cash: 'Cash', cheque: 'Cheque', check: 'Cheque', dd: 'Demand Draft'
+            };
+
+            function normalizeMode(raw) {
+                const trimmed = (raw || '').trim();
+                if (trimmed === '') return '';
+                const key = trimmed.toLowerCase().replace(/[^a-z]/g, '');
+                if (MODE_LABELS[key]) return MODE_LABELS[key];
+                // Unknown mode: title-case it rather than shouting the raw text.
+                return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+            }
+
+            /**
+             * Dates are inconsistent across the sheets -- most rows use "26.08.2026",
+             * a few use "05 Sep 2026". Accept both, plus - and / separators.
+             */
+            const MONTH_NAMES = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
+                                 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+            function fourDigitYear(raw) {
+                // The sheet mixes "2026" and "26". Two-digit years are read as 20xx.
+                return raw.length <= 2 ? 2000 + Number(raw) : Number(raw);
+            }
+
+            function parseDate(raw) {
+                // Trailing punctuation is common ("30.08.2026."), so trim it off first.
+                const s = (raw || '').trim().replace(/[.,\s]+$/, '');
+                if (s === '') return null;
+
+                // DD.MM.YYYY / DD-MM-YYYY / DD/MM/YYYY (day first, as used in the sheet)
+                let m = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})$/);
+                if (m) {
+                    const d = new Date(fourDigitYear(m[3]), Number(m[2]) - 1, Number(m[1]));
+                    return isNaN(d.getTime()) ? null : d;
+                }
+
+                // DD Mon YYYY / DD Mon YY  e.g. "05 Sep 2026", "4 Sep 26"
+                m = s.match(/^(\d{1,2})\s+([A-Za-z]{3,})\.?\s+(\d{2,4})$/);
+                if (m) {
+                    const monthIndex = MONTH_NAMES.indexOf(m[2].slice(0, 3).toLowerCase());
+                    if (monthIndex >= 0) {
+                        const d = new Date(fourDigitYear(m[3]), monthIndex, Number(m[1]));
+                        return isNaN(d.getTime()) ? null : d;
+                    }
+                }
+
+                return null;
+            }
+
+            function formatDate(date) {
+                if (!date) return '';
+                return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+            }
+
+            /** Collector names are hand-typed; group "B Sah" and "B sah" together. */
+            function collectorKey(name) {
+                return (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            }
+
+            // --- Data loading -------------------------------------------------------
+
+            async function loadData(gid) {
+                const dataSourceUrl = sheetCsvUrl(gid);
+                const response = await fetch(dataSourceUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const csvText = await response.text();
+                return csvToJson(csvText).filter(isDataRow);
+            }
+
+            function saveCache() {
+                try {
+                    localStorage.setItem(CONFIG.cacheKey, JSON.stringify({
+                        data: sheetData,
+                        savedAt: lastGoodAt ? lastGoodAt.toISOString() : null
+                    }));
+                } catch (e) {
+                    // Private browsing or a full quota -- caching is a nicety, not a need.
+                    console.warn('Could not write cache:', e);
+                }
+            }
+
+            function loadCache() {
+                try {
+                    const raw = localStorage.getItem(CONFIG.cacheKey);
+                    if (!raw) return false;
+                    const parsed = JSON.parse(raw);
+                    if (!parsed || !parsed.data) return false;
+                    sheetData = {
+                        D: parsed.data.D || [],
+                        E: parsed.data.E || [],
+                        other: parsed.data.other || [],
+                        expenses: parsed.data.expenses || []
+                    };
+                    lastGoodAt = parsed.savedAt ? new Date(parsed.savedAt) : null;
+                    return true;
+                } catch (e) {
+                    console.warn('Could not read cache:', e);
+                    return false;
+                }
+            }
+
+            /**
+             * Fetches all three tabs at once. On failure the previous data is kept on
+             * screen and a notice is shown -- a blank ₹0 board is worse than stale data.
+             */
+            async function refreshAll({ showSpinner = false } = {}) {
+                if (showSpinner) loadingSpinner.classList.remove('hidden');
+                refreshBtn.textContent = 'Refreshing…';
+                refreshBtn.disabled = true;
+
+                try {
+                    const [dData, eData, otherData, expenseData] = await Promise.all([
+                        loadData(CONFIG.gids.D),
+                        loadData(CONFIG.gids.E),
+                        loadData(CONFIG.gids.other),
+                        loadData(CONFIG.gids.expenses)
+                    ]);
+
+                    sheetData = { D: dData, E: eData, other: otherData, expenses: expenseData };
+                    lastGoodAt = new Date();
+                    saveCache();
+                    staleNotice.classList.add('hidden');
+                } catch (error) {
+                    console.error('Error fetching sheet data:', error);
+                    staleNotice.textContent = lastGoodAt
+                        ? `Could not refresh just now — showing data from ${lastGoodAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}. Will retry automatically.`
+                        : 'Could not load the spreadsheet. Will retry automatically.';
+                    staleNotice.classList.remove('hidden');
+                } finally {
+                    loadingSpinner.classList.add('hidden');
+                    refreshBtn.textContent = 'Refresh now';
+                    refreshBtn.disabled = false;
+                    updateLastUpdatedTime();
+                }
+            }
+
+            function updateLastUpdatedTime() {
+                if (!lastGoodAt) {
+                    lastUpdatedTimeEl.textContent = '—';
+                    return;
+                }
+                const minutesAgo = Math.floor((Date.now() - lastGoodAt.getTime()) / 60000);
+                const clock = lastGoodAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+                if (minutesAgo < 1) lastUpdatedTimeEl.textContent = `just now (${clock})`;
+                else if (minutesAgo === 1) lastUpdatedTimeEl.textContent = `1 min ago (${clock})`;
+                else lastUpdatedTimeEl.textContent = `${minutesAgo} min ago (${clock})`;
+            }
+
+            // --- Rendering ----------------------------------------------------------
+
+            function sumOf(rows) {
+                return rows.reduce((sum, item) => sum + parseAmount(item.Amount), 0);
+            }
+
+            function sumField(rows, field) {
+                return rows.reduce((sum, item) => sum + parseAmount(item[field]), 0);
+            }
+
+            function donationGrandTotal() {
+                return sumOf(sheetData.D) + sumOf(sheetData.E) + sumOf(sheetData.other);
+            }
+
+            /** Paid, partly paid, not yet spent, or a responsibility with no money against it. */
+            function expenseStatus(item) {
+                const actual = parseAmount(item.Actual);
+                const due = parseAmount(item.ToBePaid);
+                if (actual <= 0 && due <= 0) return 'none';
+                if (due > 0 && actual > 0) return 'partial';
+                if (actual <= 0) return 'pending';
+                return 'paid';
+            }
+
+            function applyDonationHeadline() {
+                headlineLabel.textContent = 'Total Donations Received';
+                countPrefix.textContent = 'Donated';
+                totalAmountEl.classList.add('text-lime-600');
+                totalAmountEl.classList.remove('text-rose-600');
+                progressBar.classList.add('bg-lime-500');
+                progressBar.classList.remove('bg-rose-500');
+            }
+
+            function setProgress(donatedUnits, totalUnits, collected, potential) {
+                const pct = totalUnits > 0 ? (donatedUnits / totalUnits) * 100 : 0;
+                progressBar.style.width = `${Math.min(pct, 100)}%`;
+                let label = `${pct.toFixed(1)}% of flats have donated`;
+                if (potential > 0) {
+                    label += ` · ${rupees(collected)} of ${rupees(potential)} potential`;
+                }
+                progressLabel.textContent = label;
+            }
+
+            /**
+             * Does this flat pass the search box, the status pills and the collector chip?
+             */
+            function matchesFilters(flatNumber, apartment) {
+                if (statusFilter === 'donated' && !(apartment && hasAmount(apartment))) return false;
+                if (statusFilter === 'pending' && apartment && hasAmount(apartment)) return false;
+
+                if (activeCollector) {
+                    const key = collectorKey(apartment && apartment.CollectedBy);
+                    if (key !== activeCollector.key) return false;
+                }
+
+                if (searchTerm !== '') {
+                    const haystack = `${flatNumber} ${(apartment && apartment.OwnerName) || ''}`.toLowerCase();
+                    if (!haystack.includes(searchTerm)) return false;
+                }
+
+                return true;
+            }
+
+            function renderApartmentGrid(apartmentData) {
+                gridContainer.innerHTML = '';
+
+                dataMap = new Map();
+                apartmentData.forEach(item => {
+                    if (item.FlatNumber) dataMap.set(item.FlatNumber.trim(), item);
+                });
+
+                const filtersActive = searchTerm !== '' || statusFilter !== 'all' || activeCollector !== null;
+                let matchCount = 0;
+
+                for (let floor = 1; floor <= totalFloors; floor++) {
+                    for (let flat = 1; flat <= flatsPerFloor; flat++) {
+                        const flatNumber = `${floor}${flat.toString().padStart(2, '0')}`;
+                        const apartment = dataMap.get(flatNumber);
+
+                        const tile = document.createElement('div');
+                        tile.classList.add(
+                            'w-full', 'aspect-square', 'rounded-xl', 'shadow-sm', 'flex', 'flex-col', 'items-center',
+                            'justify-center', 'font-medium', 'transition-all', 'text-center',
+                            'duration-300', 'ease-in-out', 'border', 'border-gray-200', 'cursor-pointer',
+                            'transform', 'hover:scale-105', 'hover:shadow-lg'
+                        );
+
+                        const hasDonation = !!(apartment && hasAmount(apartment));
+                        if (hasDonation) {
+                            tile.classList.add('bg-lime-500', 'text-white');
+                        } else {
+                            tile.classList.add('bg-gray-100', 'text-slate-500');
+                        }
+
+                        const isMatch = matchesFilters(flatNumber, apartment);
+                        if (isMatch) matchCount++;
+                        if (filtersActive) {
+                            if (isMatch) tile.classList.add('tile-match');
+                            else tile.classList.add('tile-dimmed');
+                        }
+
+                        const flatNumberDiv = document.createElement('div');
+                        flatNumberDiv.classList.add('text-xs', 'font-bold');
+                        flatNumberDiv.textContent = flatNumber;
+                        tile.appendChild(flatNumberDiv);
+
+                        if (hasDonation) {
+                            const donationDiv = document.createElement('div');
+                            donationDiv.classList.add('text-[10px]', 'whitespace-normal', 'break-words', 'px-1');
+                            donationDiv.textContent = rupees(parseAmount(apartment.Amount));
+                            tile.appendChild(donationDiv);
+                        }
+
+                        tile.addEventListener('click', () => showApartmentDetails(flatNumber));
+                        gridContainer.appendChild(tile);
+                    }
+                }
+
+                if (filtersActive) {
+                    filterCount.textContent = `Showing ${matchCount} of ${flatsPerWing} flats`;
+                    filterCount.classList.remove('hidden');
+                } else {
+                    filterCount.classList.add('hidden');
+                }
+            }
+
+            function renderFloorBreakdown(apartmentData) {
+                const byFloor = new Map();
+                for (let floor = 1; floor <= totalFloors; floor++) {
+                    byFloor.set(floor, { donated: 0, total: flatsPerFloor });
+                }
+
+                apartmentData.forEach(item => {
+                    const flatNumber = (item.FlatNumber || '').trim();
+                    if (!/^\d{3,4}$/.test(flatNumber)) return;
+                    const floor = Number(flatNumber.length === 3 ? flatNumber.slice(0, 1) : flatNumber.slice(0, 2));
+                    if (byFloor.has(floor) && hasAmount(item)) byFloor.get(floor).donated++;
+                });
+
+                floorBreakdown.innerHTML = '';
+                byFloor.forEach((stats, floor) => {
+                    const pct = (stats.donated / stats.total) * 100;
+                    const cell = document.createElement('div');
+                    cell.classList.add('w-16', 'text-center');
+                    cell.innerHTML = `
+                        <div class="text-[11px] font-semibold text-slate-600">F${floor}</div>
+                        <div class="w-full bg-slate-200 rounded-full h-1.5 my-1 overflow-hidden">
+                            <div class="bg-lime-500 h-1.5" style="width:${pct}%"></div>
+                        </div>
+                        <div class="text-[10px] ${stats.donated === 0 ? 'text-slate-400' : 'text-slate-600'}">${stats.donated}/${stats.total}</div>
+                    `;
+                    floorBreakdown.appendChild(cell);
+                });
+            }
+
+            /** Groups the "Other" donations under their Vargani Type headings. */
+            function renderOtherList(donationData) {
+                otherList.innerHTML = '';
+
+                if (donationData.length === 0) {
+                    otherList.innerHTML = `<p class="text-center text-slate-500">No donation data found for this sheet.</p>`;
+                    return;
+                }
+
+                const groups = new Map();
+                donationData.forEach(item => {
+                    const type = (item.Type || '').trim() || 'Uncategorised';
+                    if (!groups.has(type)) groups.set(type, []);
+                    groups.get(type).push(item);
+                });
+
+                // Groups that have money in them first, then by size.
+                const ordered = [...groups.entries()].sort((a, b) => {
+                    const diff = sumOf(b[1]) - sumOf(a[1]);
+                    return diff !== 0 ? diff : b[1].length - a[1].length;
+                });
+
+                ordered.forEach(([type, items]) => {
+                    const section = document.createElement('div');
+                    section.classList.add('mb-8');
+
+                    const groupTotal = sumOf(items);
+                    const received = items.filter(hasAmount).length;
+
+                    const heading = document.createElement('div');
+                    heading.classList.add('flex', 'items-baseline', 'justify-between', 'mb-3', 'border-b', 'border-slate-200', 'pb-2');
+                    heading.innerHTML = `
+                        <h3 class="text-lg font-bold text-slate-700">${type}</h3>
+                        <span class="text-sm text-slate-500">${received}/${items.length} received · <span class="font-semibold text-lime-600">${rupees(groupTotal)}</span></span>
+                    `;
+                    section.appendChild(heading);
+
+                    const cards = document.createElement('div');
+                    cards.classList.add('grid', 'grid-cols-1', 'md:grid-cols-2', 'lg:grid-cols-3', 'gap-4');
+
+                    items.forEach(item => {
+                        const amount = parseAmount(item.Amount);
+                        const paid = amount > 0;
+                        const card = document.createElement('div');
+                        card.classList.add(
+                            'p-5', 'rounded-2xl', 'shadow-sm', 'border', 'transition-transform', 'hover:scale-105',
+                            paid ? 'bg-white' : 'bg-slate-50',
+                            paid ? 'border-lime-200' : 'border-slate-200'
+                        );
+
+                        const mode = normalizeMode(item.Mode);
+                        const date = formatDate(parseDate(item.Date));
+
+                        card.innerHTML = `
+                            <p class="text-sm font-bold text-slate-800 mb-2">${item.Vendor || 'N/A'}</p>
+                            <p class="text-2xl font-bold ${paid ? 'text-lime-600' : 'text-slate-300'}">${paid ? rupees(amount) : 'Pending'}</p>
+                            ${paid && (mode || date) ? `<p class="text-xs font-light text-slate-400 mt-2">${[mode, date].filter(Boolean).join(' · ')}</p>` : ''}
+                        `;
+                        cards.appendChild(card);
+                    });
+
+                    section.appendChild(cards);
+                    otherList.appendChild(section);
+                });
+            }
+
+            function showApartmentDetails(flatNumber) {
+                const apartment = dataMap.get(flatNumber) || { FlatNumber: flatNumber };
+                modalTitle.textContent = `Flat: ${flatNumber}`;
+
+                const amount = parseAmount(apartment.Amount);
+                let detailsHtml = '<ul class="list-disc list-inside space-y-2">';
+                if (apartment.OwnerName) detailsHtml += `<li><span class="font-semibold">Owner Name:</span> ${apartment.OwnerName}</li>`;
+
+                if (amount > 0) {
+                    detailsHtml += `<li><span class="font-semibold">Amount:</span> ${rupees(amount)}</li>`;
+                    const mode = normalizeMode(apartment.Mode);
+                    if (mode) detailsHtml += `<li><span class="font-semibold">Mode:</span> ${mode}</li>`;
+                    const date = parseDate(apartment.Date);
+                    if (date) detailsHtml += `<li><span class="font-semibold">Date:</span> ${date.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</li>`;
+                    if (apartment.CollectedBy) detailsHtml += `<li><span class="font-semibold">Collected By:</span> ${apartment.CollectedBy}</li>`;
+                    detailsHtml += '</ul>';
+                } else {
+                    detailsHtml += '</ul>';
+                    detailsHtml += `
+                        <div class="flex flex-col items-center justify-center space-y-3 text-center p-4">
+                            <p class="text-xl font-semibold text-slate-500">No donation recorded yet.</p>
+                            <p class="text-sm text-slate-400">This flat has not made a donation.</p>
+                        </div>
+                    `;
+                }
+
+                modalBody.innerHTML = detailsHtml;
+                infoModal.classList.add('show-modal');
+            }
+
+            window.closeModal = function() {
+                infoModal.classList.remove('show-modal');
+            };
+
+            function renderCollectorSummary(donationData) {
+                const collectorTotals = new Map();
+
+                donationData.forEach(item => {
+                    const collectorName = (item.CollectedBy || '').trim();
+                    const amount = parseAmount(item.Amount);
+
+                    // Only count rows that actually carry money, so collectors are not
+                    // listed at ₹0 for every blank flat assigned to them.
+                    if (collectorName === '' || amount <= 0) return;
+
+                    const key = collectorKey(collectorName);
+                    const existing = collectorTotals.get(key);
+                    collectorTotals.set(key, {
+                        key,
+                        name: existing ? existing.name : collectorName,
+                        total: (existing ? existing.total : 0) + amount,
+                        count: (existing ? existing.count : 0) + 1
+                    });
+                });
+
+                collectorSummaryContainer.innerHTML = '';
+
+                if (collectorTotals.size === 0) {
+                    collectorSummaryContainer.innerHTML =
+                        `<p class="text-sm font-light text-slate-500">No collection data available.</p>`;
+                    return;
+                }
+
+                [...collectorTotals.values()]
+                    .sort((a, b) => b.total - a.total)
+                    .forEach(collector => {
+                        const card = document.createElement('button');
+                        card.classList.add(
+                            'p-4', 'bg-lime-50', 'rounded-xl', 'shadow-sm', 'border', 'border-lime-200',
+                            'w-full', 'sm:w-auto', 'min-w-[150px]', 'text-left', 'cursor-pointer',
+                            'transition-all', 'hover:border-lime-500', 'hover:shadow-md'
+                        );
+                        card.innerHTML = `
+                            <p class="text-sm font-semibold text-slate-700">${collector.name}</p>
+                            <p class="text-xl font-bold text-lime-600">${rupees(collector.total)}</p>
+                            <p class="text-xs text-slate-400 mt-1">${collector.count} flat${collector.count === 1 ? '' : 's'}</p>
+                        `;
+                        card.addEventListener('click', () => filterByCollector(collector));
+                        collectorSummaryContainer.appendChild(card);
+                    });
+            }
+
+            /** Last 10 donations across all three tabs, newest first. */
+            function renderRecentDonations() {
+                const entries = [];
+
+                [['E', sheetData.E], ['D', sheetData.D]].forEach(([wing, rows]) => {
+                    rows.filter(hasAmount).forEach(item => {
+                        entries.push({
+                            label: `${wing}-${(item.FlatNumber || '').trim()}`,
+                            who: item.OwnerName || '',
+                            amount: parseAmount(item.Amount),
+                            date: parseDate(item.Date),
+                            mode: normalizeMode(item.Mode),
+                            collector: (item.CollectedBy || '').trim()
+                        });
+                    });
+                });
+
+                sheetData.other.filter(hasAmount).forEach(item => {
+                    entries.push({
+                        label: 'Other',
+                        who: item.Vendor || '',
+                        amount: parseAmount(item.Amount),
+                        date: parseDate(item.Date),
+                        mode: normalizeMode(item.Mode),
+                        collector: (item.CollectedBy || '').trim()
+                    });
+                });
+
+                // Dated rows first (newest first); undated rows trail behind.
+                entries.sort((a, b) => {
+                    if (a.date && b.date) return b.date - a.date;
+                    if (a.date) return -1;
+                    if (b.date) return 1;
+                    return b.amount - a.amount;
+                });
+
+                recentList.innerHTML = '';
+
+                if (entries.length === 0) {
+                    recentList.innerHTML = `<p class="p-4 text-center text-sm text-slate-500">No donations recorded yet.</p>`;
+                    return;
+                }
+
+                entries.slice(0, 10).forEach(entry => {
+                    const row = document.createElement('div');
+                    row.classList.add('flex', 'items-center', 'justify-between', 'gap-3', 'px-4', 'py-3', 'bg-white');
+
+                    const meta = [entry.mode, entry.collector ? `via ${entry.collector}` : '']
+                        .filter(Boolean).join(' · ');
+
+                    row.innerHTML = `
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-slate-700 truncate">
+                                <span class="text-slate-400 font-normal">${entry.label}</span>
+                                ${entry.who ? ` · ${entry.who}` : ''}
+                            </p>
+                            <p class="text-xs text-slate-400 truncate">${meta || '—'}</p>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <p class="text-sm font-bold text-lime-600">${rupees(entry.amount)}</p>
+                            <p class="text-xs text-slate-400">${entry.date ? formatDate(entry.date) : ''}</p>
+                        </div>
+                    `;
+                    recentList.appendChild(row);
+                });
+            }
+
+            function renderSummaryTab() {
+                applyDonationHeadline();
+                const totalDWing = sumOf(sheetData.D);
+                const totalEWing = sumOf(sheetData.E);
+                const totalOther = sumOf(sheetData.other);
+                const grandTotal = totalDWing + totalEWing + totalOther;
+
+                const donorsD = sheetData.D.filter(hasAmount).length;
+                const donorsE = sheetData.E.filter(hasAmount).length;
+                const donorsOther = sheetData.other.filter(hasAmount).length;
+
+                totalDWingEl.textContent = rupees(totalDWing);
+                totalEWingEl.textContent = rupees(totalEWing);
+                totalOtherEl.textContent = rupees(totalOther);
+                countDWingEl.textContent = `${donorsD} of ${flatsPerWing} flats`;
+                countEWingEl.textContent = `${donorsE} of ${flatsPerWing} flats`;
+                countOtherEl.textContent = `${donorsOther} of ${sheetData.other.length} entries`;
+
+                totalAmountEl.textContent = rupees(grandTotal);
+                donationCountEl.textContent = donorsD + donorsE;
+                totalUnitsEl.textContent = flatsPerWing * 2;
+                unitLabelEl.textContent = 'Flats';
+
+                setProgress(donorsD + donorsE, flatsPerWing * 2, grandTotal,
+                            flatsPerWing * 2 * CONFIG.targetPerFlat);
+
+                const actualSpent = sumField(sheetData.expenses, 'Actual');
+                const stillToPay = sumField(sheetData.expenses, 'ToBePaid');
+                statusDonationEl.textContent = rupees(grandTotal);
+                statusExpensesEl.textContent = rupees(actualSpent);
+                statusLeftEl.textContent = rupees(grandTotal - actualSpent);
+                statusDueEl.textContent = stillToPay > 0 ? `${rupees(stillToPay)} still to pay` : '';
+
+                renderCollectorSummary([...sheetData.E, ...sheetData.D, ...sheetData.other]);
+                renderRecentDonations();
+                updateDateStamp();
+            }
+
+            function renderWingTab(wing) {
+                applyDonationHeadline();
+                const rows = sheetData[wing];
+                const total = sumOf(rows);
+                const donors = rows.filter(hasAmount).length;
+
+                totalAmountEl.textContent = rupees(total);
+                donationCountEl.textContent = donors;
+                totalUnitsEl.textContent = flatsPerWing;
+                unitLabelEl.textContent = 'Apartments';
+
+                setProgress(donors, flatsPerWing, total, flatsPerWing * CONFIG.targetPerFlat);
+
+                renderFloorBreakdown(rows);
+                renderApartmentGrid(rows);
+                updateDateStamp();
+            }
+
+            function renderOtherTab() {
+                applyDonationHeadline();
+                const rows = sheetData.other;
+                const total = sumOf(rows);
+                const donors = rows.filter(hasAmount).length;
+
+                totalAmountEl.textContent = rupees(total);
+                donationCountEl.textContent = donors;
+                totalUnitsEl.textContent = rows.length;
+                unitLabelEl.textContent = 'Items';
+
+                setProgress(donors, rows.length, total, 0);
+                renderOtherList(rows);
+                updateDateStamp();
+            }
+
+            function renderExpenseList(rows) {
+                expenseList.innerHTML = '';
+
+                if (rows.length === 0) {
+                    expenseList.innerHTML = `<p class="text-center text-slate-500">No expense data found for this sheet.</p>`;
+                    return;
+                }
+
+                const moneyRows = rows.filter(item => expenseStatus(item) !== 'none');
+                const otherRows = rows.filter(item => expenseStatus(item) === 'none');
+
+                const statusMeta = {
+                    paid: { label: 'Paid', badge: 'bg-emerald-100 text-emerald-700', card: 'bg-white border-slate-200' },
+                    partial: { label: 'Part paid', badge: 'bg-amber-100 text-amber-800', card: 'bg-amber-50 border-amber-200' },
+                    pending: { label: 'Not spent yet', badge: 'bg-rose-100 text-rose-700', card: 'bg-rose-50 border-rose-200' },
+                    none: { label: 'No expense', badge: 'bg-slate-100 text-slate-500', card: 'bg-slate-50 border-slate-200' }
+                };
+
+                function cardFor(item) {
+                    const status = expenseStatus(item);
+                    const meta = statusMeta[status];
+                    const actual = parseAmount(item.Actual);
+                    const due = parseAmount(item.ToBePaid);
+                    const vendor = [item.VendorName, item.VendorContact].filter(Boolean).join(' · ');
+                    const booking = (item.BookingStatus || '').trim();
+
+                    const lines = [];
+                    if (item.Responsible) {
+                        lines.push(`<p class="text-xs text-slate-500 mb-3">${escapeHtml(item.Responsible)}</p>`);
+                    }
+                    if (actual > 0) {
+                        lines.push(`<p class="text-2xl font-bold text-rose-600">${rupees(actual)}</p>`);
+                        lines.push(`<p class="text-[11px] uppercase tracking-wide text-slate-400">Actual</p>`);
+                    } else {
+                        lines.push(`<p class="text-2xl font-bold text-slate-300">₹0</p>`);
+                        lines.push(`<p class="text-[11px] uppercase tracking-wide text-slate-400">Actual</p>`);
+                    }
+
+                    const extras = [];
+                    if (due > 0) extras.push(`To pay ${rupees(due)}`);
+                    if (extras.length) {
+                        lines.push(`<p class="text-xs text-slate-500 mt-2">${extras.join(' · ')}</p>`);
+                    }
+                    if (item.SpendBy) {
+                        lines.push(`<p class="text-xs text-slate-500 mt-1">Spent by ${escapeHtml(item.SpendBy)}</p>`);
+                    }
+                    if (vendor) {
+                        lines.push(`<p class="text-xs text-slate-400 mt-1">${escapeHtml(vendor)}</p>`);
+                    }
+                    if (booking) {
+                        lines.push(`<p class="text-xs text-slate-400 mt-1">${escapeHtml(booking)}</p>`);
+                    }
+
+                    const card = document.createElement('div');
+                    card.className = `p-5 rounded-2xl shadow-sm border ${meta.card}`;
+                    card.innerHTML = `
+                        <div class="flex items-start justify-between gap-3 mb-2">
+                            <p class="text-sm font-bold text-slate-800">${escapeHtml(item.Description)}</p>
+                            <span class="shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full ${meta.badge}">${meta.label}</span>
+                        </div>
+                        ${lines.join('')}
+                    `;
+                    return card;
+                }
+
+                function section(title, items) {
+                    if (items.length === 0) return;
+                    const wrap = document.createElement('div');
+                    wrap.className = 'mb-8';
+                    const heading = document.createElement('h3');
+                    heading.className = 'text-lg font-bold text-slate-700 mb-3';
+                    heading.textContent = title;
+                    wrap.appendChild(heading);
+                    const grid = document.createElement('div');
+                    grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
+                    items.forEach(item => grid.appendChild(cardFor(item)));
+                    wrap.appendChild(grid);
+                    expenseList.appendChild(wrap);
+                }
+
+                section('Expenses', moneyRows);
+                section('Responsibilities with no expense', otherRows);
+            }
+
+            function renderExpensesTab() {
+                const rows = sheetData.expenses;
+                const actual = sumField(rows, 'Actual');
+                const due = sumField(rows, 'ToBePaid');
+                const moneyRows = rows.filter(item => expenseStatus(item) !== 'none');
+                const spentCount = moneyRows.filter(item => parseAmount(item.Actual) > 0).length;
+                const collected = donationGrandTotal();
+
+                headlineLabel.textContent = 'Total Expenses';
+                countPrefix.textContent = 'Spent';
+                totalAmountEl.textContent = rupees(actual);
+                totalAmountEl.classList.remove('text-lime-600');
+                totalAmountEl.classList.add('text-rose-600');
+                donationCountEl.textContent = spentCount;
+                totalUnitsEl.textContent = moneyRows.length;
+                unitLabelEl.textContent = 'Items';
+
+                progressBar.classList.remove('bg-lime-500');
+                progressBar.classList.add('bg-rose-500');
+                const committed = actual + due;
+                const pct = committed > 0 ? (actual / committed) * 100 : 0;
+                progressBar.style.width = `${Math.min(pct, 100)}%`;
+                progressLabel.textContent = `${rupees(due)} still to pay`;
+
+                expenseActualEl.textContent = rupees(actual);
+                expenseDueEl.textContent = rupees(due);
+                expenseBalanceEl.textContent = rupees(collected - actual);
+
+                renderExpenseList(rows);
+                updateDateStamp();
+            }
+
+            function updateDateStamp() {
+                currentDateEl.textContent = new Date().toLocaleDateString('en-IN', {
+                    year: 'numeric', month: 'long', day: 'numeric'
+                });
+            }
+
+            /** Renders whichever tab is active, from the cached data. */
+            function renderCurrentTab() {
+                if (currentTab === 'summary') renderSummaryTab();
+                else if (currentTab === 'other') renderOtherTab();
+                else if (currentTab === 'expenses') renderExpensesTab();
+                else renderWingTab(currentTab);
+                updateLastUpdatedTime();
+            }
+
+            // --- Filters ------------------------------------------------------------
+
+            function setStatusFilter(next) {
+                statusFilter = next;
+                [['all', filterAllBtn], ['donated', filterDonatedBtn], ['pending', filterPendingBtn]]
+                    .forEach(([name, btn]) => btn.classList.toggle('active', statusFilter === name));
+                if (currentTab === 'E' || currentTab === 'D') renderWingTab(currentTab);
+            }
+
+            function updateCollectorChip() {
+                if (activeCollector) {
+                    collectorChipBtn.textContent = `${activeCollector.name} ✕`;
+                    collectorChip.classList.remove('hidden');
+                } else {
+                    collectorChip.classList.add('hidden');
+                }
+            }
+
+            /**
+             * Clicking a collector card jumps to whichever wing holds most of their
+             * collections and filters the grid down to their flats.
+             */
+            function filterByCollector(collector) {
+                activeCollector = { key: collector.key, name: collector.name };
+
+                const countIn = wing => sheetData[wing]
+                    .filter(item => hasAmount(item) && collectorKey(item.CollectedBy) === collector.key).length;
+
+                const targetWing = countIn('E') >= countIn('D') ? 'E' : 'D';
+                updateCollectorChip();
+                switchTab(targetWing);
+            }
+
+            function clearCollectorFilter() {
+                activeCollector = null;
+                updateCollectorChip();
+                if (currentTab === 'E' || currentTab === 'D') renderWingTab(currentTab);
+            }
+
+            // --- Tab switching ------------------------------------------------------
+
+            function switchTab(tab) {
+                currentTab = tab;
+
+                [toggleButtonSummary, toggleButtonE, toggleButtonD, toggleButtonOther, toggleButtonExpenses]
+                    .forEach(btn => btn.classList.remove('active'));
+
+                summaryContentContainer.classList.add('hidden');
+                apartmentGridWrapper.classList.add('hidden');
+                otherListContainer.classList.add('hidden');
+                expenseListContainer.classList.add('hidden');
+                filterBar.classList.add('hidden');
+                filterCount.classList.add('hidden');
+                floorBreakdownWrapper.classList.add('hidden');
+
+                if (tab === 'summary') {
+                    toggleButtonSummary.classList.add('active');
+                    summaryContentContainer.classList.remove('hidden');
+                } else if (tab === 'other') {
+                    toggleButtonOther.classList.add('active');
+                    otherListContainer.classList.remove('hidden');
+                } else if (tab === 'expenses') {
+                    toggleButtonExpenses.classList.add('active');
+                    expenseListContainer.classList.remove('hidden');
+                } else {
+                    (tab === 'E' ? toggleButtonE : toggleButtonD).classList.add('active');
+                    apartmentGridWrapper.classList.remove('hidden');
+                    filterBar.classList.remove('hidden');
+                    floorBreakdownWrapper.classList.remove('hidden');
+                }
+
+                renderCurrentTab();
+            }
+
+            // --- Event wiring -------------------------------------------------------
+
+            toggleButtonSummary.addEventListener('click', () => switchTab('summary'));
+            toggleButtonE.addEventListener('click', () => switchTab('E'));
+            toggleButtonD.addEventListener('click', () => switchTab('D'));
+            toggleButtonOther.addEventListener('click', () => switchTab('other'));
+            toggleButtonExpenses.addEventListener('click', () => switchTab('expenses'));
+
+            filterAllBtn.addEventListener('click', () => setStatusFilter('all'));
+            filterDonatedBtn.addEventListener('click', () => setStatusFilter('donated'));
+            filterPendingBtn.addEventListener('click', () => setStatusFilter('pending'));
+            collectorChipBtn.addEventListener('click', clearCollectorFilter);
+
+            searchInput.addEventListener('input', () => {
+                searchTerm = searchInput.value.trim().toLowerCase();
+                if (currentTab === 'E' || currentTab === 'D') renderWingTab(currentTab);
+            });
+
+            refreshBtn.addEventListener('click', async () => {
+                await refreshAll({ showSpinner: false });
+                renderCurrentTab();
+            });
+
+            infoModal.addEventListener('click', (event) => {
+                if (event.target === infoModal) closeModal();
+            });
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') closeModal();
+            });
+
+            // --- Startup ------------------------------------------------------------
+
+            // Paint cached data immediately so the page is never blank while fetching.
+            const hadCache = loadCache();
+            if (hadCache) {
+                switchTab('summary');
+            } else {
+                loadingSpinner.classList.remove('hidden');
+            }
+
+            await refreshAll({ showSpinner: !hadCache });
+            switchTab('summary');
+
+            setInterval(async () => {
+                await refreshAll();
+                renderCurrentTab();
+            }, CONFIG.updateInterval);
+
+            // Keep the "x min ago" stamp honest between refreshes.
+            setInterval(updateLastUpdatedTime, 30 * 1000);
+
+        })();
+    </script>
+</body>
+</html>
