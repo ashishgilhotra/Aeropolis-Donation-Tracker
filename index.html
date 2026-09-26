@@ -59,28 +59,80 @@
             from { opacity: 0; transform: scale(0.95); }
             to { opacity: 1; transform: scale(1); }
         }
-        .toggle-btn {
-            background-color: #e2e8f0;
-            color: #475569;
-            font-weight: 600;
-            padding: 0.5rem 1rem;
-            border-radius: 9999px;
-            transition: all 0.2s ease-in-out;
+        .explore-card {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.1rem;
+            text-align: left;
+            background: #ffffff;
+            color: #1e293b;
+            border: 1px solid #e2e8f0;
+            border-radius: 1.25rem;
+            padding: 0.9rem 1rem 0.8rem;
             cursor: pointer;
-            border: none;
-            outline: none;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
         }
-        .toggle-btn:hover {
-            background-color: #cbd5e1;
+        .explore-card:hover {
+            transform: translateY(-2px);
+            border-color: #84cc16;
+            box-shadow: 0 10px 22px rgba(22, 163, 74, 0.12);
         }
-        .toggle-btn.active {
-            background-color: #16a34a;
-            color: white;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        .explore-card:active { transform: translateY(0); }
+        .explore-card:focus-visible {
+            outline: 2px solid #16a34a;
+            outline-offset: 2px;
         }
-        .toggle-btn.active:hover {
-            background-color: #15803d;
+        .explore-card.active {
+            background: #f0fdf4;
+            border-color: #16a34a;
+            box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.16);
         }
+        .explore-kicker {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #94a3b8;
+        }
+        .explore-card.active .explore-kicker { color: #16a34a; }
+        .explore-title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #0f172a;
+            line-height: 1.2;
+        }
+        .explore-figure {
+            margin-top: 0.45rem;
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #65a30d;
+            letter-spacing: -0.02em;
+        }
+        .explore-hint {
+            font-size: 0.75rem;
+            color: #64748b;
+            line-height: 1.3;
+        }
+        .explore-go {
+            margin-top: 0.55rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #16a34a;
+        }
+        .explore-card .go-here { display: none; }
+        .explore-card.active .go-idle { display: none; }
+        .explore-card.active .go-here { display: inline; }
+        .explore-card.tone-out .explore-figure,
+        .explore-card.tone-out .explore-go { color: #e11d48; }
+        .explore-card.tone-out:hover { border-color: #fb7185; box-shadow: 0 10px 22px rgba(225, 29, 72, 0.12); }
+        .explore-card.tone-out.active {
+            background: #fff1f2;
+            border-color: #e11d48;
+            box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.14);
+        }
+        .explore-card.tone-out.active .explore-kicker { color: #e11d48; }
         /* Smaller pill used by the status filter, so it reads as secondary to the tabs */
         .filter-btn {
             background-color: #e2e8f0;
@@ -143,14 +195,44 @@
             </p>
             <p id="stale-notice" class="text-xs text-amber-600 mt-1 hidden"></p>
 
-            <div class="mt-6 flex flex-col items-center space-y-2">
-                <span class="font-semibold text-slate-600">Select Donation Type:</span>
-                <div class="inline-flex flex-wrap justify-center rounded-full bg-slate-200 p-1 gap-1">
-                    <button id="toggle-summary" class="toggle-btn active">Summary</button>
-                    <button id="toggle-E" class="toggle-btn">Wing E</button>
-                    <button id="toggle-D" class="toggle-btn">Wing D</button>
-                    <button id="toggle-other" class="toggle-btn">Other</button>
-                    <button id="toggle-expenses" class="toggle-btn">Expenses</button>
+            <div class="mt-8 w-full max-w-5xl mx-auto">
+                <p class="text-sm font-semibold text-slate-500 mb-3">Open a section</p>
+                <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 text-left">
+                    <button id="toggle-summary" class="explore-card active col-span-2 lg:col-span-1" aria-pressed="true">
+                        <span class="explore-kicker">Overview</span>
+                        <span class="explore-title">Summary</span>
+                        <span id="nav-summary-figure" class="explore-figure">₹0</span>
+                        <span id="nav-summary-hint" class="explore-hint">Donation, spend and what’s left</span>
+                        <span class="explore-go"><span class="go-idle">Open →</span><span class="go-here">Viewing</span></span>
+                    </button>
+                    <button id="toggle-E" class="explore-card" aria-pressed="false">
+                        <span class="explore-kicker">Flats</span>
+                        <span class="explore-title">Wing E</span>
+                        <span id="nav-e-figure" class="explore-figure">₹0</span>
+                        <span id="nav-e-hint" class="explore-hint">See each flat</span>
+                        <span class="explore-go"><span class="go-idle">Open →</span><span class="go-here">Viewing</span></span>
+                    </button>
+                    <button id="toggle-D" class="explore-card" aria-pressed="false">
+                        <span class="explore-kicker">Flats</span>
+                        <span class="explore-title">Wing D</span>
+                        <span id="nav-d-figure" class="explore-figure">₹0</span>
+                        <span id="nav-d-hint" class="explore-hint">See each flat</span>
+                        <span class="explore-go"><span class="go-idle">Open →</span><span class="go-here">Viewing</span></span>
+                    </button>
+                    <button id="toggle-other" class="explore-card" aria-pressed="false">
+                        <span class="explore-kicker">Beyond flats</span>
+                        <span class="explore-title">Other</span>
+                        <span id="nav-other-figure" class="explore-figure">₹0</span>
+                        <span id="nav-other-hint" class="explore-hint">Vendors and sponsors</span>
+                        <span class="explore-go"><span class="go-idle">Open →</span><span class="go-here">Viewing</span></span>
+                    </button>
+                    <button id="toggle-expenses" class="explore-card tone-out" aria-pressed="false">
+                        <span class="explore-kicker">Ganpati</span>
+                        <span class="explore-title">Expenses</span>
+                        <span id="nav-expenses-figure" class="explore-figure">₹0</span>
+                        <span id="nav-expenses-hint" class="explore-hint">What has been spent</span>
+                        <span class="explore-go"><span class="go-idle">Open →</span><span class="go-here">Viewing</span></span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -1351,11 +1433,35 @@
             }
 
             /** Renders whichever tab is active, from the cached data. */
+            function updateExploreCards() {
+                const totalE = sumOf(sheetData.E);
+                const totalD = sumOf(sheetData.D);
+                const totalOther = sumOf(sheetData.other);
+                const donated = totalE + totalD + totalOther;
+                const spent = sumField(sheetData.expenses, 'Actual');
+                const due = sumField(sheetData.expenses, 'ToBePaid');
+                const donorsE = sheetData.E.filter(hasAmount).length;
+                const donorsD = sheetData.D.filter(hasAmount).length;
+                const donorsOther = sheetData.other.filter(hasAmount).length;
+
+                document.getElementById('nav-summary-figure').textContent = rupees(donated);
+                document.getElementById('nav-summary-hint').textContent = `${rupees(donated - spent)} left after expenses`;
+                document.getElementById('nav-e-figure').textContent = rupees(totalE);
+                document.getElementById('nav-e-hint').textContent = `${donorsE} of ${flatsPerWing} flats`;
+                document.getElementById('nav-d-figure').textContent = rupees(totalD);
+                document.getElementById('nav-d-hint').textContent = `${donorsD} of ${flatsPerWing} flats`;
+                document.getElementById('nav-other-figure').textContent = rupees(totalOther);
+                document.getElementById('nav-other-hint').textContent = `${donorsOther} received, including Maha Prasad`;
+                document.getElementById('nav-expenses-figure').textContent = rupees(spent);
+                document.getElementById('nav-expenses-hint').textContent = due > 0 ? `${rupees(due)} still to pay` : 'What has been spent';
+            }
+
             function renderCurrentTab() {
                 if (currentTab === 'summary') renderSummaryTab();
                 else if (currentTab === 'other') renderOtherTab();
                 else if (currentTab === 'expenses') renderExpensesTab();
                 else renderWingTab(currentTab);
+                updateExploreCards();
                 updateLastUpdatedTime();
             }
 
@@ -1404,7 +1510,10 @@
                 currentTab = tab;
 
                 [toggleButtonSummary, toggleButtonE, toggleButtonD, toggleButtonOther, toggleButtonExpenses]
-                    .forEach(btn => btn.classList.remove('active'));
+                    .forEach(btn => {
+                        btn.classList.remove('active');
+                        btn.setAttribute('aria-pressed', 'false');
+                    });
 
                 summaryContentContainer.classList.add('hidden');
                 apartmentGridWrapper.classList.add('hidden');
@@ -1414,21 +1523,23 @@
                 filterCount.classList.add('hidden');
                 floorBreakdownWrapper.classList.add('hidden');
 
+                let activeButton = toggleButtonSummary;
                 if (tab === 'summary') {
-                    toggleButtonSummary.classList.add('active');
                     summaryContentContainer.classList.remove('hidden');
                 } else if (tab === 'other') {
-                    toggleButtonOther.classList.add('active');
+                    activeButton = toggleButtonOther;
                     otherListContainer.classList.remove('hidden');
                 } else if (tab === 'expenses') {
-                    toggleButtonExpenses.classList.add('active');
+                    activeButton = toggleButtonExpenses;
                     expenseListContainer.classList.remove('hidden');
                 } else {
-                    (tab === 'E' ? toggleButtonE : toggleButtonD).classList.add('active');
+                    activeButton = tab === 'E' ? toggleButtonE : toggleButtonD;
                     apartmentGridWrapper.classList.remove('hidden');
                     filterBar.classList.remove('hidden');
                     floorBreakdownWrapper.classList.remove('hidden');
                 }
+                activeButton.classList.add('active');
+                activeButton.setAttribute('aria-pressed', 'true');
 
                 renderCurrentTab();
             }
