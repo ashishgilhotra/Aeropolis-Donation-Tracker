@@ -192,6 +192,7 @@
             <p class="text-sm font-light text-slate-400 mt-4">
                 Last updated: <span id="last-updated-time">—</span>
                 <button id="refresh-btn" class="ml-2 text-lime-600 hover:text-lime-700 font-semibold underline underline-offset-2">Refresh now</button>
+                <span id="view-count" class="hidden"> · Views <span id="view-count-number" class="font-semibold text-slate-500">0</span></span>
             </p>
             <p id="stale-notice" class="text-xs text-amber-600 mt-1 hidden"></p>
 
@@ -396,7 +397,11 @@
                 targetPerFlat: 1500,
 
                 updateInterval: 5 * 60 * 1000, // 5 minutes
-                cacheKey: 'aap-donation-tracker-v1'
+                cacheKey: 'aap-donation-tracker-v1',
+
+                // Public visit counter. One number for this tracker, whichever host serves it.
+                // The same person is counted once every 30 minutes.
+                viewCounterSite: 'aeropolis-phase2-donation-tracker'
             };
 
             const totalFloors = CONFIG.totalFloors;
@@ -1574,7 +1579,28 @@
                 if (event.key === 'Escape') closeModal();
             });
 
+            async function recordPageView() {
+                const viewCount = document.getElementById('view-count');
+                const viewCountNumber = document.getElementById('view-count-number');
+                const query = `site=${encodeURIComponent(CONFIG.viewCounterSite)}&path=/`;
+                const base = 'https://page-views-api.ratneshc.com/api/v1';
+                try {
+                    await fetch(`${base}/track?${query}`);
+                    const response = await fetch(`${base}/views?${query}`);
+                    if (!response.ok) return;
+                    const data = await response.json();
+                    if (typeof data.views !== 'number') return;
+                    viewCountNumber.textContent = data.views.toLocaleString('en-IN');
+                    viewCount.classList.remove('hidden');
+                } catch (error) {
+                    console.warn('Could not update view count:', error);
+                }
+            }
+
             // --- Startup ------------------------------------------------------------
+
+            // Count this visit, then show the total. A failure here must not block the sheet.
+            recordPageView();
 
             // Paint cached data immediately so the page is never blank while fetching.
             const hadCache = loadCache();
