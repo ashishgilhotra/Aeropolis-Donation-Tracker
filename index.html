@@ -500,6 +500,10 @@
                 // Used only for the "potential" figure on the progress bar.
                 targetPerFlat: 1500,
 
+                // Holi 2026 net cost to society (Expense in Holi − Navratri balance − Holi donations).
+                // Hard-coded until the Holi sheet loads reliably on all devices.
+                holiNetExpense2026: 4118,
+
                 updateInterval: 5 * 60 * 1000, // 5 minutes
                 cacheKey: 'aap-donation-tracker-v3',
 
@@ -1001,20 +1005,8 @@
              * Net Holi cost to society funds: Expense in Holi − opening balance − Holi donations.
              * (e.g. 10,150 − 5,732 − 300 = 4,118). Does not sum every row on the sheet.
              */
-            function holiNetDeficit(rows) {
-                if (!rows || rows.length === 0) return 0;
-
-                const gross = holiExpenseTotal(rows);
-                const opening = holiOpeningBalance(rows);
-                const donated = holiDonationsReceived(rows);
-                const net = gross - opening - donated;
-
-                const balanceAfter = holiBalanceAfter(rows);
-                if (balanceAfter !== null && balanceAfter < 0) {
-                    return Math.max(0, -balanceAfter);
-                }
-
-                return Math.max(0, net);
+            function holiNetDeficit() {
+                return CONFIG.holiNetExpense2026;
             }
 
             function applyDonationHeadline() {
@@ -1444,21 +1436,15 @@
 
                 const actualSpent = sumField(sheetData.expenses, 'Actual');
                 const stillToPay = sumField(sheetData.expenses, 'ToBePaid');
-                const holiNet = holiNetDeficit(sheetData.holi);
+                const holiNet = holiNetDeficit();
                 statusDonationEl.textContent = rupees(grandTotal);
                 statusExpensesEl.textContent = rupees(actualSpent);
                 statusHoliExpensesEl.textContent = rupees(holiNet);
                 statusLeftEl.textContent = rupees(grandTotal - actualSpent - holiNet);
                 statusDueEl.textContent = stillToPay > 0 ? `${rupees(stillToPay)} still to pay` : '';
-                if (holiNet > 0) {
-                    const gross = holiExpenseTotal(sheetData.holi);
-                    const opening = holiOpeningBalance(sheetData.holi);
-                    const donated = holiDonationsReceived(sheetData.holi);
-                    statusHoliNoteEl.textContent =
-                        `${rupees(gross)} expense − ${rupees(opening + donated)} from balance & donations`;
-                } else {
-                    statusHoliNoteEl.textContent = '';
-                }
+                statusHoliNoteEl.textContent = holiNet > 0
+                    ? 'Net after Navratri balance & Holi donations (2026)'
+                    : '';
 
                 renderCollectorSummary([...sheetData.E, ...sheetData.D, ...sheetData.other]);
                 renderRecentDonations();
@@ -1628,7 +1614,7 @@
                 const totalOther = sumOf(sheetData.other);
                 const donated = totalE + totalD + totalOther;
                 const spent = sumField(sheetData.expenses, 'Actual');
-                const holiNet = holiNetDeficit(sheetData.holi);
+                const holiNet = holiNetDeficit();
                 const due = sumField(sheetData.expenses, 'ToBePaid');
                 const donorsE = sheetData.E.filter(hasAmount).length;
                 const donorsD = sheetData.D.filter(hasAmount).length;
