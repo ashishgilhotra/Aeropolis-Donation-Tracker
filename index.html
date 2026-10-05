@@ -501,7 +501,7 @@
                 targetPerFlat: 1500,
 
                 updateInterval: 5 * 60 * 1000, // 5 minutes
-                cacheKey: 'aap-donation-tracker-v2',
+                cacheKey: 'aap-donation-tracker-v3',
 
                 // Public visit counter. One number for this tracker, whichever host serves it.
                 // The same person is counted once every 30 minutes.
@@ -730,7 +730,14 @@
              */
             function parseAmount(value) {
                 if (value === undefined || value === null) return 0;
-                const cleaned = String(value).replace(/[^0-9.\-]/g, '');
+                let raw = String(value).trim().replace(/\u2212/g, '-').replace(/,/g, '');
+                const stripped = raw.replace(/[₹\s]/g, '');
+                const paren = stripped.match(/^\(([\d.]+)\)$/);
+                if (paren) {
+                    const n = parseFloat(paren[1]);
+                    return isNaN(n) ? 0 : -n;
+                }
+                const cleaned = raw.replace(/[^0-9.\-]/g, '');
                 const amount = parseFloat(cleaned);
                 return isNaN(amount) ? 0 : amount;
             }
@@ -991,17 +998,23 @@
             }
 
             /**
-             * Net shortfall from Holi: expenses minus cash already in hand and Holi donations.
-             * Matches “Balance after Holi” when that row is negative (e.g. ₹4,118).
+             * Net Holi cost to society funds: Expense in Holi − opening balance − Holi donations.
+             * (e.g. 10,150 − 5,732 − 300 = 4,118). Does not sum every row on the sheet.
              */
             function holiNetDeficit(rows) {
-                const balanceAfter = holiBalanceAfter(rows);
-                if (balanceAfter !== null && balanceAfter < 0) return -balanceAfter;
+                if (!rows || rows.length === 0) return 0;
 
                 const gross = holiExpenseTotal(rows);
                 const opening = holiOpeningBalance(rows);
                 const donated = holiDonationsReceived(rows);
-                return Math.max(0, gross - opening - donated);
+                const net = gross - opening - donated;
+
+                const balanceAfter = holiBalanceAfter(rows);
+                if (balanceAfter !== null && balanceAfter < 0) {
+                    return Math.max(0, -balanceAfter);
+                }
+
+                return Math.max(0, net);
             }
 
             function applyDonationHeadline() {
@@ -1437,9 +1450,15 @@
                 statusHoliExpensesEl.textContent = rupees(holiNet);
                 statusLeftEl.textContent = rupees(grandTotal - actualSpent - holiNet);
                 statusDueEl.textContent = stillToPay > 0 ? `${rupees(stillToPay)} still to pay` : '';
-                statusHoliNoteEl.textContent = holiNet > 0
-                    ? 'After Navratri balance and Holi donations'
-                    : '';
+                if (holiNet > 0) {
+                    const gross = holiExpenseTotal(sheetData.holi);
+                    const opening = holiOpeningBalance(sheetData.holi);
+                    const donated = holiDonationsReceived(sheetData.holi);
+                    statusHoliNoteEl.textContent =
+                        `${rupees(gross)} expense − ${rupees(opening + donated)} from balance & donations`;
+                } else {
+                    statusHoliNoteEl.textContent = '';
+                }
 
                 renderCollectorSummary([...sheetData.E, ...sheetData.D, ...sheetData.other]);
                 renderRecentDonations();
