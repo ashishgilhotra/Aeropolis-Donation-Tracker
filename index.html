@@ -292,7 +292,7 @@
 
             <div class="mt-8 w-full max-w-5xl mx-auto">
                 <p class="text-sm font-semibold text-slate-500 mb-3">Open a section</p>
-                <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 text-left">
+                <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 text-left">
                     <button id="toggle-summary" class="explore-card active col-span-2 lg:col-span-1" aria-pressed="true">
                         <span class="explore-kicker">Overview</span>
                         <span class="explore-title">Summary</span>
@@ -328,13 +328,6 @@
                         <span id="nav-expenses-hint" class="explore-hint">What has been spent</span>
                         <span class="explore-go"><span class="go-idle">Open →</span><span class="go-here">Viewing</span></span>
                     </button>
-                    <button id="toggle-holi" class="explore-card tone-out" aria-pressed="false">
-                        <span class="explore-kicker">Holi</span>
-                        <span class="explore-title">Expenses</span>
-                        <span id="nav-holi-figure" class="explore-figure">₹0</span>
-                        <span id="nav-holi-hint" class="explore-hint">Holi 2026 breakdown</span>
-                        <span class="explore-go"><span class="go-idle">Open →</span><span class="go-here">Viewing</span></span>
-                    </button>
                 </div>
             </div>
         </div>
@@ -357,7 +350,8 @@
                         </tr>
                         <tr class="border-b border-slate-100">
                             <th scope="row" class="px-4 py-4 sm:px-5 text-left text-sm sm:text-base font-semibold text-slate-700">
-                                <button type="button" id="link-holi-expenses" class="status-tab-link">Holi Expense</button>
+                                Holi Expense (2026)
+                                <span id="status-holi-note" class="block text-xs font-normal text-slate-400 mt-1"></span>
                             </th>
                             <td id="status-holi-expenses" class="px-4 py-4 sm:px-5 text-right text-lg sm:text-xl font-bold text-rose-600 whitespace-nowrap">₹0</td>
                         </tr>
@@ -446,21 +440,6 @@
                 </div>
             </div>
             <div id="expense-list"></div>
-        </div>
-
-        <div id="holi-list-container" class="hidden mb-10">
-            <h2 class="text-2xl font-bold text-slate-800 mb-4 text-center">Holi 2026</h2>
-            <div class="flex flex-wrap justify-center gap-4 mb-8">
-                <div class="p-4 bg-rose-50 rounded-xl shadow-sm w-full sm:w-auto min-w-[150px] text-center border border-rose-100">
-                    <p class="text-sm font-semibold text-slate-700">Total Holi expense</p>
-                    <p id="holi-expense-total" class="text-xl font-bold text-rose-600">₹0</p>
-                </div>
-                <div class="p-4 bg-lime-50 rounded-xl shadow-sm w-full sm:w-auto min-w-[150px] text-center border border-lime-100">
-                    <p class="text-sm font-semibold text-slate-700">Balance after Holi</p>
-                    <p id="holi-balance-after" class="text-xl font-bold text-lime-700">₹0</p>
-                </div>
-            </div>
-            <div id="holi-list"></div>
         </div>
 
         <div id="loading-spinner" class="flex items-center justify-center space-x-2 text-slate-400 mb-8 hidden">
@@ -560,15 +539,14 @@
             const toggleButtonD = document.getElementById('toggle-D');
             const toggleButtonOther = document.getElementById('toggle-other');
             const toggleButtonExpenses = document.getElementById('toggle-expenses');
-            const toggleButtonHoli = document.getElementById('toggle-holi');
             const toggleButtonSummary = document.getElementById('toggle-summary');
             const linkGanpatiExpenses = document.getElementById('link-ganpati-expenses');
-            const linkHoliExpenses = document.getElementById('link-holi-expenses');
             const headlineLabel = document.getElementById('headline-label');
             const countPrefix = document.getElementById('count-prefix');
             const statusDonationEl = document.getElementById('status-donation');
             const statusExpensesEl = document.getElementById('status-expenses');
             const statusHoliExpensesEl = document.getElementById('status-holi-expenses');
+            const statusHoliNoteEl = document.getElementById('status-holi-note');
             const statusDueEl = document.getElementById('status-due');
             const statusLeftEl = document.getElementById('status-left');
             const donationCountEl = document.getElementById('donation-count');
@@ -585,10 +563,6 @@
             const expenseActualEl = document.getElementById('expense-actual');
             const expenseDueEl = document.getElementById('expense-due');
             const expenseBalanceEl = document.getElementById('expense-balance');
-            const holiListContainer = document.getElementById('holi-list-container');
-            const holiList = document.getElementById('holi-list');
-            const holiExpenseTotalEl = document.getElementById('holi-expense-total');
-            const holiBalanceAfterEl = document.getElementById('holi-balance-after');
             const summaryContentContainer = document.getElementById('summary-content-container');
             const totalDWingEl = document.getElementById('total-d-wing');
             const totalEWingEl = document.getElementById('total-e-wing');
@@ -611,7 +585,7 @@
 
             // --- Application state ---
             let dataMap = new Map();          // flat number -> row, for the active wing
-            let currentTab = 'summary';       // 'summary' | 'E' | 'D' | 'other' | 'expenses' | 'holi'
+            let currentTab = 'summary';       // 'summary' | 'E' | 'D' | 'other' | 'expenses'
             let sheetData = { D: [], E: [], other: [], expenses: [], mahaprasad: [], holi: [] };
             let mahaprasadExpanded = false;
             let lastGoodAt = null;            // Date of the last successful fetch
@@ -1002,6 +976,32 @@
             function holiBalanceAfter(rows) {
                 const row = rows.find(item => /^balance after holi/i.test((item.Description || '').trim()));
                 return row ? parseAmount(row.Amount) : null;
+            }
+
+            function holiOpeningBalance(rows) {
+                const row = rows.find(item => /^balance after navratri/i.test((item.Description || '').trim()));
+                return row ? parseAmount(row.Amount) : 0;
+            }
+
+            function holiDonationsReceived(rows) {
+                return rows.reduce((sum, item) => {
+                    if (holiRowKind(item.Description) !== 'income') return sum;
+                    return sum + parseAmount(item.Amount);
+                }, 0);
+            }
+
+            /**
+             * Net shortfall from Holi: expenses minus cash already in hand and Holi donations.
+             * Matches “Balance after Holi” when that row is negative (e.g. ₹4,118).
+             */
+            function holiNetDeficit(rows) {
+                const balanceAfter = holiBalanceAfter(rows);
+                if (balanceAfter !== null && balanceAfter < 0) return -balanceAfter;
+
+                const gross = holiExpenseTotal(rows);
+                const opening = holiOpeningBalance(rows);
+                const donated = holiDonationsReceived(rows);
+                return Math.max(0, gross - opening - donated);
             }
 
             function applyDonationHeadline() {
@@ -1431,12 +1431,15 @@
 
                 const actualSpent = sumField(sheetData.expenses, 'Actual');
                 const stillToPay = sumField(sheetData.expenses, 'ToBePaid');
-                const holiSpent = holiExpenseTotal(sheetData.holi);
+                const holiNet = holiNetDeficit(sheetData.holi);
                 statusDonationEl.textContent = rupees(grandTotal);
                 statusExpensesEl.textContent = rupees(actualSpent);
-                statusHoliExpensesEl.textContent = rupees(holiSpent);
-                statusLeftEl.textContent = rupees(grandTotal - actualSpent - holiSpent);
+                statusHoliExpensesEl.textContent = rupees(holiNet);
+                statusLeftEl.textContent = rupees(grandTotal - actualSpent - holiNet);
                 statusDueEl.textContent = stillToPay > 0 ? `${rupees(stillToPay)} still to pay` : '';
+                statusHoliNoteEl.textContent = holiNet > 0
+                    ? 'After Navratri balance and Holi donations'
+                    : '';
 
                 renderCollectorSummary([...sheetData.E, ...sheetData.D, ...sheetData.other]);
                 renderRecentDonations();
@@ -1561,44 +1564,6 @@
                 section('Responsibilities with no expense', otherRows);
             }
 
-            function renderHoliList(rows) {
-                holiList.innerHTML = '';
-                if (rows.length === 0) {
-                    holiList.innerHTML = `<p class="text-center text-slate-500">No Holi data found for this sheet.</p>`;
-                    return;
-                }
-
-                const grid = document.createElement('div');
-                grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto';
-
-                rows.forEach(item => {
-                    const kind = holiRowKind(item.Description);
-                    const amount = parseAmount(item.Amount);
-                    let cardClass = 'bg-white border-slate-200';
-                    let amountClass = 'text-slate-800';
-                    if (kind === 'expense' || kind === 'subtotal') {
-                        cardClass = kind === 'subtotal' ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200';
-                        amountClass = 'text-rose-600';
-                    } else if (kind === 'income') {
-                        cardClass = 'bg-lime-50 border-lime-200';
-                        amountClass = 'text-lime-700';
-                    } else if (kind === 'balance') {
-                        cardClass = 'bg-slate-50 border-slate-200';
-                        amountClass = amount < 0 ? 'text-rose-600' : 'text-slate-700';
-                    }
-
-                    const card = document.createElement('div');
-                    card.className = `p-5 rounded-2xl shadow-sm border ${cardClass}`;
-                    card.innerHTML = `
-                        <p class="text-sm font-bold text-slate-800">${escapeHtml(item.Description)}</p>
-                        <p class="text-2xl font-bold mt-2 ${amountClass}">${rupees(amount)}</p>
-                    `;
-                    grid.appendChild(card);
-                });
-
-                holiList.appendChild(grid);
-            }
-
             function renderExpensesTab() {
                 const rows = sheetData.expenses;
                 const actual = sumField(rows, 'Actual');
@@ -1631,35 +1596,6 @@
                 updateDateStamp();
             }
 
-            function renderHoliTab() {
-                const rows = sheetData.holi;
-                const total = holiExpenseTotal(rows);
-                const balanceAfter = holiBalanceAfter(rows);
-                const lineCount = rows.filter(item => holiRowKind(item.Description) === 'expense').length;
-
-                headlineLabel.textContent = 'Total Holi Expense';
-                countPrefix.textContent = 'Line items';
-                totalAmountEl.textContent = rupees(total);
-                totalAmountEl.classList.remove('text-lime-600');
-                totalAmountEl.classList.add('text-rose-600');
-                donationCountEl.textContent = lineCount;
-                totalUnitsEl.textContent = rows.length;
-                unitLabelEl.textContent = 'Rows';
-
-                progressBar.classList.remove('bg-lime-500');
-                progressBar.classList.add('bg-rose-500');
-                progressBar.style.width = rows.length > 0 ? '100%' : '0%';
-                progressLabel.textContent = balanceAfter !== null
-                    ? `Balance after Holi ${rupees(balanceAfter)}`
-                    : 'Holi 2026 sheet';
-
-                holiExpenseTotalEl.textContent = rupees(total);
-                holiBalanceAfterEl.textContent = balanceAfter !== null ? rupees(balanceAfter) : '—';
-
-                renderHoliList(rows);
-                updateDateStamp();
-            }
-
             function updateDateStamp() {
                 currentDateEl.textContent = new Date().toLocaleDateString('en-IN', {
                     year: 'numeric', month: 'long', day: 'numeric'
@@ -1673,14 +1609,14 @@
                 const totalOther = sumOf(sheetData.other);
                 const donated = totalE + totalD + totalOther;
                 const spent = sumField(sheetData.expenses, 'Actual');
-                const holiSpent = holiExpenseTotal(sheetData.holi);
+                const holiNet = holiNetDeficit(sheetData.holi);
                 const due = sumField(sheetData.expenses, 'ToBePaid');
                 const donorsE = sheetData.E.filter(hasAmount).length;
                 const donorsD = sheetData.D.filter(hasAmount).length;
                 const donorsOther = sheetData.other.filter(hasAmount).length;
 
                 document.getElementById('nav-summary-figure').textContent = rupees(donated);
-                document.getElementById('nav-summary-hint').textContent = `${rupees(donated - spent - holiSpent)} left after expenses`;
+                document.getElementById('nav-summary-hint').textContent = `${rupees(donated - spent - holiNet)} left after expenses`;
                 document.getElementById('nav-e-figure').textContent = rupees(totalE);
                 document.getElementById('nav-e-hint').textContent = `${donorsE} of ${flatsPerWing} flats`;
                 document.getElementById('nav-d-figure').textContent = rupees(totalD);
@@ -1689,15 +1625,12 @@
                 document.getElementById('nav-other-hint').textContent = `${donorsOther} received, including Maha Prasad`;
                 document.getElementById('nav-expenses-figure').textContent = rupees(spent);
                 document.getElementById('nav-expenses-hint').textContent = due > 0 ? `${rupees(due)} still to pay` : 'What has been spent';
-                document.getElementById('nav-holi-figure').textContent = rupees(holiSpent);
-                document.getElementById('nav-holi-hint').textContent = holiSpent > 0 ? 'Tap for breakdown' : 'Holi 2026 breakdown';
             }
 
             function renderCurrentTab() {
                 if (currentTab === 'summary') renderSummaryTab();
                 else if (currentTab === 'other') renderOtherTab();
                 else if (currentTab === 'expenses') renderExpensesTab();
-                else if (currentTab === 'holi') renderHoliTab();
                 else renderWingTab(currentTab);
                 updateExploreCards();
                 updateLastUpdatedTime();
@@ -1747,7 +1680,7 @@
             function switchTab(tab) {
                 currentTab = tab;
 
-                [toggleButtonSummary, toggleButtonE, toggleButtonD, toggleButtonOther, toggleButtonExpenses, toggleButtonHoli]
+                [toggleButtonSummary, toggleButtonE, toggleButtonD, toggleButtonOther, toggleButtonExpenses]
                     .forEach(btn => {
                         btn.classList.remove('active');
                         btn.setAttribute('aria-pressed', 'false');
@@ -1757,7 +1690,6 @@
                 apartmentGridWrapper.classList.add('hidden');
                 otherListContainer.classList.add('hidden');
                 expenseListContainer.classList.add('hidden');
-                holiListContainer.classList.add('hidden');
                 filterBar.classList.add('hidden');
                 filterCount.classList.add('hidden');
                 floorBreakdownWrapper.classList.add('hidden');
@@ -1771,9 +1703,6 @@
                 } else if (tab === 'expenses') {
                     activeButton = toggleButtonExpenses;
                     expenseListContainer.classList.remove('hidden');
-                } else if (tab === 'holi') {
-                    activeButton = toggleButtonHoli;
-                    holiListContainer.classList.remove('hidden');
                 } else {
                     activeButton = tab === 'E' ? toggleButtonE : toggleButtonD;
                     apartmentGridWrapper.classList.remove('hidden');
@@ -1793,9 +1722,7 @@
             toggleButtonD.addEventListener('click', () => switchTab('D'));
             toggleButtonOther.addEventListener('click', () => switchTab('other'));
             toggleButtonExpenses.addEventListener('click', () => switchTab('expenses'));
-            toggleButtonHoli.addEventListener('click', () => switchTab('holi'));
             linkGanpatiExpenses.addEventListener('click', () => switchTab('expenses'));
-            linkHoliExpenses.addEventListener('click', () => switchTab('holi'));
 
             filterAllBtn.addEventListener('click', () => setStatusFilter('all'));
             filterDonatedBtn.addEventListener('click', () => setStatusFilter('donated'));
