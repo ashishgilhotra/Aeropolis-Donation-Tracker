@@ -292,7 +292,7 @@
 
             <div class="mt-8 w-full max-w-5xl mx-auto">
                 <p class="text-sm font-semibold text-slate-500 mb-3">Open a section</p>
-                <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 text-left">
+                <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 text-left">
                     <button id="toggle-summary" class="explore-card active col-span-2 lg:col-span-1" aria-pressed="true">
                         <span class="explore-kicker">Overview</span>
                         <span class="explore-title">Summary</span>
@@ -328,6 +328,13 @@
                         <span id="nav-expenses-hint" class="explore-hint">What has been spent</span>
                         <span class="explore-go"><span class="go-idle">Open →</span><span class="go-here">Viewing</span></span>
                     </button>
+                    <button id="toggle-navratri-expenses" class="explore-card tone-out" aria-pressed="false">
+                        <span class="explore-kicker">Navratri</span>
+                        <span class="explore-title">Expenses</span>
+                        <span id="nav-navratri-figure" class="explore-figure">₹0</span>
+                        <span id="nav-navratri-hint" class="explore-hint">What has been spent</span>
+                        <span class="explore-go"><span class="go-idle">Open →</span><span class="go-here">Viewing</span></span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -347,6 +354,13 @@
                                 <span id="status-due" class="block text-xs font-normal text-amber-600 mt-1"></span>
                             </th>
                             <td id="status-expenses" class="px-4 py-4 sm:px-5 text-right text-lg sm:text-xl font-bold text-rose-600 align-top whitespace-nowrap">₹0</td>
+                        </tr>
+                        <tr class="border-b border-slate-100">
+                            <th scope="row" class="px-4 py-4 sm:px-5 text-left text-sm sm:text-base font-semibold text-slate-700">
+                                <button type="button" id="link-navratri-expenses" class="status-tab-link">Total Expenses (Navratri)</button>
+                                <span id="status-navratri-due" class="block text-xs font-normal text-amber-600 mt-1"></span>
+                            </th>
+                            <td id="status-navratri-expenses" class="px-4 py-4 sm:px-5 text-right text-lg sm:text-xl font-bold text-rose-600 align-top whitespace-nowrap">₹0</td>
                         </tr>
                         <tr class="border-b border-slate-100">
                             <th scope="row" class="px-4 py-4 sm:px-5 text-left text-sm sm:text-base font-semibold text-slate-700">
@@ -442,6 +456,26 @@
             <div id="expense-list"></div>
         </div>
 
+        <div id="navratri-expense-list-container" class="hidden mb-10">
+            <h2 class="text-2xl font-bold text-slate-800 mb-4 text-center">Navratri Expenses</h2>
+            <div class="flex flex-wrap justify-center gap-4 mb-8">
+                <div class="p-4 bg-rose-50 rounded-xl shadow-sm w-full sm:w-auto min-w-[150px] text-center border border-rose-100">
+                    <p class="text-sm font-semibold text-slate-700">Actual spent</p>
+                    <p id="navratri-expense-actual" class="text-xl font-bold text-rose-600">₹0</p>
+                </div>
+                <div class="p-4 bg-amber-50 rounded-xl shadow-sm w-full sm:w-auto min-w-[150px] text-center border border-amber-100">
+                    <p class="text-sm font-semibold text-slate-700">Still to pay</p>
+                    <p id="navratri-expense-due" class="text-xl font-bold text-amber-600">₹0</p>
+                </div>
+                <div class="p-4 bg-lime-50 rounded-xl shadow-sm w-full sm:w-auto min-w-[150px] text-center border border-lime-100">
+                    <p class="text-sm font-semibold text-slate-700">Left after expenses</p>
+                    <p id="navratri-expense-balance" class="text-xl font-bold text-lime-700">₹0</p>
+                    <p class="text-xs text-slate-400 mt-1">Donations minus actual spent</p>
+                </div>
+            </div>
+            <div id="navratri-expense-list"></div>
+        </div>
+
         <div id="loading-spinner" class="flex items-center justify-center space-x-2 text-slate-400 mb-8 hidden">
             <svg class="animate-spin h-6 w-6 text-lime-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -490,6 +524,7 @@
                     E: '1982817405',
                     other: '161621158',
                     expenses: '150660130', // "Responsbility & Expense Ganpati"
+                    navratriExpenses: '1393385533', // "Responsbility & Expense Navratri"
                     mahaprasad: '1139945096',
                     holi: '1571328229' // "Holi 2026"
                 },
@@ -505,7 +540,7 @@
                 holiNetExpense2026: 4118,
 
                 updateInterval: 5 * 60 * 1000, // 5 minutes
-                cacheKey: 'aap-donation-tracker-v3',
+                cacheKey: 'aap-donation-tracker-v4',
 
                 // Public visit counter. One number for this tracker, whichever host serves it.
                 // The same person is counted once every 30 minutes.
@@ -543,12 +578,16 @@
             const toggleButtonD = document.getElementById('toggle-D');
             const toggleButtonOther = document.getElementById('toggle-other');
             const toggleButtonExpenses = document.getElementById('toggle-expenses');
+            const toggleButtonNavratriExpenses = document.getElementById('toggle-navratri-expenses');
             const toggleButtonSummary = document.getElementById('toggle-summary');
             const linkGanpatiExpenses = document.getElementById('link-ganpati-expenses');
+            const linkNavratriExpenses = document.getElementById('link-navratri-expenses');
             const headlineLabel = document.getElementById('headline-label');
             const countPrefix = document.getElementById('count-prefix');
             const statusDonationEl = document.getElementById('status-donation');
             const statusExpensesEl = document.getElementById('status-expenses');
+            const statusNavratriExpensesEl = document.getElementById('status-navratri-expenses');
+            const statusNavratriDueEl = document.getElementById('status-navratri-due');
             const statusHoliExpensesEl = document.getElementById('status-holi-expenses');
             const statusHoliNoteEl = document.getElementById('status-holi-note');
             const statusDueEl = document.getElementById('status-due');
@@ -567,6 +606,11 @@
             const expenseActualEl = document.getElementById('expense-actual');
             const expenseDueEl = document.getElementById('expense-due');
             const expenseBalanceEl = document.getElementById('expense-balance');
+            const navratriExpenseListContainer = document.getElementById('navratri-expense-list-container');
+            const navratriExpenseList = document.getElementById('navratri-expense-list');
+            const navratriExpenseActualEl = document.getElementById('navratri-expense-actual');
+            const navratriExpenseDueEl = document.getElementById('navratri-expense-due');
+            const navratriExpenseBalanceEl = document.getElementById('navratri-expense-balance');
             const summaryContentContainer = document.getElementById('summary-content-container');
             const totalDWingEl = document.getElementById('total-d-wing');
             const totalEWingEl = document.getElementById('total-e-wing');
@@ -589,8 +633,8 @@
 
             // --- Application state ---
             let dataMap = new Map();          // flat number -> row, for the active wing
-            let currentTab = 'summary';       // 'summary' | 'E' | 'D' | 'other' | 'expenses'
-            let sheetData = { D: [], E: [], other: [], expenses: [], mahaprasad: [], holi: [] };
+            let currentTab = 'summary';       // 'summary' | 'E' | 'D' | 'other' | 'expenses' | 'navratri'
+            let sheetData = { D: [], E: [], other: [], expenses: [], navratriExpenses: [], mahaprasad: [], holi: [] };
             let mahaprasadExpanded = false;
             let lastGoodAt = null;            // Date of the last successful fetch
             let searchTerm = '';
@@ -880,6 +924,7 @@
                         E: parsed.data.E || [],
                         other: parsed.data.other || [],
                         expenses: parsed.data.expenses || [],
+                        navratriExpenses: parsed.data.navratriExpenses || [],
                         mahaprasad: parsed.data.mahaprasad || [],
                         holi: parsed.data.holi || []
                     };
@@ -901,16 +946,20 @@
                 refreshBtn.disabled = true;
 
                 try {
-                    const [dData, eData, otherData, expenseData, mahaprasadData, holiData] = await Promise.all([
+                    const [dData, eData, otherData, expenseData, navratriExpenseData, mahaprasadData, holiData] = await Promise.all([
                         loadData(CONFIG.gids.D),
                         loadData(CONFIG.gids.E),
                         loadData(CONFIG.gids.other),
                         loadData(CONFIG.gids.expenses),
+                        loadData(CONFIG.gids.navratriExpenses),
                         loadData(CONFIG.gids.mahaprasad),
                         loadData(CONFIG.gids.holi)
                     ]);
 
-                    sheetData = { D: dData, E: eData, other: otherData, expenses: expenseData, mahaprasad: mahaprasadData, holi: holiData };
+                    sheetData = {
+                        D: dData, E: eData, other: otherData, expenses: expenseData,
+                        navratriExpenses: navratriExpenseData, mahaprasad: mahaprasadData, holi: holiData
+                    };
                     lastGoodAt = new Date();
                     saveCache();
                     staleNotice.classList.add('hidden');
@@ -1007,6 +1056,22 @@
              */
             function holiNetDeficit() {
                 return CONFIG.holiNetExpense2026;
+            }
+
+            function expenseLedgerTotals() {
+                const ganpatiActual = sumField(sheetData.expenses, 'Actual');
+                const ganpatiDue = sumField(sheetData.expenses, 'ToBePaid');
+                const navratriActual = sumField(sheetData.navratriExpenses, 'Actual');
+                const navratriDue = sumField(sheetData.navratriExpenses, 'ToBePaid');
+                const holiNet = holiNetDeficit();
+                return {
+                    ganpatiActual,
+                    ganpatiDue,
+                    navratriActual,
+                    navratriDue,
+                    holiNet,
+                    totalOutflow: ganpatiActual + navratriActual + holiNet
+                };
             }
 
             function applyDonationHeadline() {
@@ -1434,15 +1499,15 @@
                 setProgress(donorsD + donorsE, flatsPerWing * 2, grandTotal,
                             flatsPerWing * 2 * CONFIG.targetPerFlat);
 
-                const actualSpent = sumField(sheetData.expenses, 'Actual');
-                const stillToPay = sumField(sheetData.expenses, 'ToBePaid');
-                const holiNet = holiNetDeficit();
+                const ledger = expenseLedgerTotals();
                 statusDonationEl.textContent = rupees(grandTotal);
-                statusExpensesEl.textContent = rupees(actualSpent);
-                statusHoliExpensesEl.textContent = rupees(holiNet);
-                statusLeftEl.textContent = rupees(grandTotal - actualSpent - holiNet);
-                statusDueEl.textContent = stillToPay > 0 ? `${rupees(stillToPay)} still to pay` : '';
-                statusHoliNoteEl.textContent = holiNet > 0
+                statusExpensesEl.textContent = rupees(ledger.ganpatiActual);
+                statusNavratriExpensesEl.textContent = rupees(ledger.navratriActual);
+                statusHoliExpensesEl.textContent = rupees(ledger.holiNet);
+                statusLeftEl.textContent = rupees(grandTotal - ledger.totalOutflow);
+                statusDueEl.textContent = ledger.ganpatiDue > 0 ? `${rupees(ledger.ganpatiDue)} still to pay` : '';
+                statusNavratriDueEl.textContent = ledger.navratriDue > 0 ? `${rupees(ledger.navratriDue)} still to pay` : '';
+                statusHoliNoteEl.textContent = ledger.holiNet > 0
                     ? 'Net after Navratri balance & Holi donations (2026)'
                     : '';
 
@@ -1569,15 +1634,14 @@
                 section('Responsibilities with no expense', otherRows);
             }
 
-            function renderExpensesTab() {
-                const rows = sheetData.expenses;
+            function renderFestivalExpensesTab(rows, ui, festivalLabel) {
                 const actual = sumField(rows, 'Actual');
                 const due = sumField(rows, 'ToBePaid');
                 const moneyRows = rows.filter(item => expenseStatus(item) !== 'none');
                 const spentCount = moneyRows.filter(item => parseAmount(item.Actual) > 0).length;
                 const collected = donationGrandTotal();
 
-                headlineLabel.textContent = 'Total Expenses';
+                headlineLabel.textContent = `Total Expenses (${festivalLabel})`;
                 countPrefix.textContent = 'Spent';
                 totalAmountEl.textContent = rupees(actual);
                 totalAmountEl.classList.remove('text-lime-600');
@@ -1593,12 +1657,30 @@
                 progressBar.style.width = `${Math.min(pct, 100)}%`;
                 progressLabel.textContent = `${rupees(due)} still to pay`;
 
-                expenseActualEl.textContent = rupees(actual);
-                expenseDueEl.textContent = rupees(due);
-                expenseBalanceEl.textContent = rupees(collected - actual);
+                ui.actualEl.textContent = rupees(actual);
+                ui.dueEl.textContent = rupees(due);
+                ui.balanceEl.textContent = rupees(collected - actual);
 
-                renderExpenseList(rows, expenseList);
+                renderExpenseList(rows, ui.listEl);
                 updateDateStamp();
+            }
+
+            function renderExpensesTab() {
+                renderFestivalExpensesTab(sheetData.expenses, {
+                    actualEl: expenseActualEl,
+                    dueEl: expenseDueEl,
+                    balanceEl: expenseBalanceEl,
+                    listEl: expenseList
+                }, 'Ganpati');
+            }
+
+            function renderNavratriExpensesTab() {
+                renderFestivalExpensesTab(sheetData.navratriExpenses, {
+                    actualEl: navratriExpenseActualEl,
+                    dueEl: navratriExpenseDueEl,
+                    balanceEl: navratriExpenseBalanceEl,
+                    listEl: navratriExpenseList
+                }, 'Navratri');
             }
 
             function updateDateStamp() {
@@ -1613,29 +1695,32 @@
                 const totalD = sumOf(sheetData.D);
                 const totalOther = sumOf(sheetData.other);
                 const donated = totalE + totalD + totalOther;
-                const spent = sumField(sheetData.expenses, 'Actual');
-                const holiNet = holiNetDeficit();
-                const due = sumField(sheetData.expenses, 'ToBePaid');
+                const ledger = expenseLedgerTotals();
+                const due = ledger.ganpatiDue;
+                const navratriDue = ledger.navratriDue;
                 const donorsE = sheetData.E.filter(hasAmount).length;
                 const donorsD = sheetData.D.filter(hasAmount).length;
                 const donorsOther = sheetData.other.filter(hasAmount).length;
 
                 document.getElementById('nav-summary-figure').textContent = rupees(donated);
-                document.getElementById('nav-summary-hint').textContent = `${rupees(donated - spent - holiNet)} left after expenses`;
+                document.getElementById('nav-summary-hint').textContent = `${rupees(donated - ledger.totalOutflow)} left after expenses`;
                 document.getElementById('nav-e-figure').textContent = rupees(totalE);
                 document.getElementById('nav-e-hint').textContent = `${donorsE} of ${flatsPerWing} flats`;
                 document.getElementById('nav-d-figure').textContent = rupees(totalD);
                 document.getElementById('nav-d-hint').textContent = `${donorsD} of ${flatsPerWing} flats`;
                 document.getElementById('nav-other-figure').textContent = rupees(totalOther);
                 document.getElementById('nav-other-hint').textContent = `${donorsOther} received, including Maha Prasad`;
-                document.getElementById('nav-expenses-figure').textContent = rupees(spent);
+                document.getElementById('nav-expenses-figure').textContent = rupees(ledger.ganpatiActual);
                 document.getElementById('nav-expenses-hint').textContent = due > 0 ? `${rupees(due)} still to pay` : 'What has been spent';
+                document.getElementById('nav-navratri-figure').textContent = rupees(ledger.navratriActual);
+                document.getElementById('nav-navratri-hint').textContent = navratriDue > 0 ? `${rupees(navratriDue)} still to pay` : 'What has been spent';
             }
 
             function renderCurrentTab() {
                 if (currentTab === 'summary') renderSummaryTab();
                 else if (currentTab === 'other') renderOtherTab();
                 else if (currentTab === 'expenses') renderExpensesTab();
+                else if (currentTab === 'navratri') renderNavratriExpensesTab();
                 else renderWingTab(currentTab);
                 updateExploreCards();
                 updateLastUpdatedTime();
@@ -1685,7 +1770,7 @@
             function switchTab(tab) {
                 currentTab = tab;
 
-                [toggleButtonSummary, toggleButtonE, toggleButtonD, toggleButtonOther, toggleButtonExpenses]
+                [toggleButtonSummary, toggleButtonE, toggleButtonD, toggleButtonOther, toggleButtonExpenses, toggleButtonNavratriExpenses]
                     .forEach(btn => {
                         btn.classList.remove('active');
                         btn.setAttribute('aria-pressed', 'false');
@@ -1695,6 +1780,7 @@
                 apartmentGridWrapper.classList.add('hidden');
                 otherListContainer.classList.add('hidden');
                 expenseListContainer.classList.add('hidden');
+                navratriExpenseListContainer.classList.add('hidden');
                 filterBar.classList.add('hidden');
                 filterCount.classList.add('hidden');
                 floorBreakdownWrapper.classList.add('hidden');
@@ -1708,6 +1794,9 @@
                 } else if (tab === 'expenses') {
                     activeButton = toggleButtonExpenses;
                     expenseListContainer.classList.remove('hidden');
+                } else if (tab === 'navratri') {
+                    activeButton = toggleButtonNavratriExpenses;
+                    navratriExpenseListContainer.classList.remove('hidden');
                 } else {
                     activeButton = tab === 'E' ? toggleButtonE : toggleButtonD;
                     apartmentGridWrapper.classList.remove('hidden');
@@ -1727,7 +1816,9 @@
             toggleButtonD.addEventListener('click', () => switchTab('D'));
             toggleButtonOther.addEventListener('click', () => switchTab('other'));
             toggleButtonExpenses.addEventListener('click', () => switchTab('expenses'));
+            toggleButtonNavratriExpenses.addEventListener('click', () => switchTab('navratri'));
             linkGanpatiExpenses.addEventListener('click', () => switchTab('expenses'));
+            linkNavratriExpenses.addEventListener('click', () => switchTab('navratri'));
 
             filterAllBtn.addEventListener('click', () => setStatusFilter('all'));
             filterDonatedBtn.addEventListener('click', () => setStatusFilter('donated'));
