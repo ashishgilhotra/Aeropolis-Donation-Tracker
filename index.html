@@ -540,7 +540,7 @@
                 holiNetExpense2026: 4118,
 
                 updateInterval: 5 * 60 * 1000, // 5 minutes
-                cacheKey: 'aap-donation-tracker-v4',
+                cacheKey: 'aap-donation-tracker-v5',
 
                 // Public visit counter. One number for this tracker, whichever host serves it.
                 // The same person is counted once every 30 minutes.
@@ -733,6 +733,10 @@
                 'responsible person': 'Responsible',
                 'proposed expense': 'Proposed',
                 'actual expense': 'Actual',
+                'spend so far': 'Actual',
+                'spent so far': 'Actual',
+                'spend sofar': 'Actual',
+                'spent sofar': 'Actual',
                 'spend by': 'SpendBy',
                 'booking status': 'BookingStatus',
                 'to be paid': 'ToBePaid',
@@ -999,13 +1003,22 @@
                 return rows.reduce((sum, item) => sum + parseAmount(item[field]), 0);
             }
 
+            /** Ganpati uses “Actual expense”; Navratri uses “Spend So far” — both map to Actual when aliased. */
+            function rowActualExpense(item) {
+                return parseAmount(item.Actual);
+            }
+
+            function sumExpenseActual(rows) {
+                return rows.reduce((sum, item) => sum + rowActualExpense(item), 0);
+            }
+
             function donationGrandTotal() {
                 return sumOf(sheetData.D) + sumOf(sheetData.E) + sumOf(sheetData.other);
             }
 
             /** Paid, partly paid, not yet spent, or a responsibility with no money against it. */
             function expenseStatus(item) {
-                const actual = parseAmount(item.Actual);
+                const actual = rowActualExpense(item);
                 const due = parseAmount(item.ToBePaid);
                 if (actual <= 0 && due <= 0) return 'none';
                 if (due > 0 && actual > 0) return 'partial';
@@ -1059,9 +1072,9 @@
             }
 
             function expenseLedgerTotals() {
-                const ganpatiActual = sumField(sheetData.expenses, 'Actual');
+                const ganpatiActual = sumExpenseActual(sheetData.expenses);
                 const ganpatiDue = sumField(sheetData.expenses, 'ToBePaid');
-                const navratriActual = sumField(sheetData.navratriExpenses, 'Actual');
+                const navratriActual = sumExpenseActual(sheetData.navratriExpenses);
                 const navratriDue = sumField(sheetData.navratriExpenses, 'ToBePaid');
                 const holiNet = holiNetDeficit();
                 return {
@@ -1571,7 +1584,7 @@
                 function cardFor(item) {
                     const status = expenseStatus(item);
                     const meta = statusMeta[status];
-                    const actual = parseAmount(item.Actual);
+                    const actual = rowActualExpense(item);
                     const due = parseAmount(item.ToBePaid);
                     const vendor = [item.VendorName, item.VendorContact].filter(Boolean).join(' · ');
                     const booking = (item.BookingStatus || '').trim();
@@ -1635,10 +1648,10 @@
             }
 
             function renderFestivalExpensesTab(rows, ui, festivalLabel) {
-                const actual = sumField(rows, 'Actual');
+                const actual = sumExpenseActual(rows);
                 const due = sumField(rows, 'ToBePaid');
                 const moneyRows = rows.filter(item => expenseStatus(item) !== 'none');
-                const spentCount = moneyRows.filter(item => parseAmount(item.Actual) > 0).length;
+                const spentCount = moneyRows.filter(item => rowActualExpense(item) > 0).length;
                 const collected = donationGrandTotal();
 
                 headlineLabel.textContent = `Total Expenses (${festivalLabel})`;
