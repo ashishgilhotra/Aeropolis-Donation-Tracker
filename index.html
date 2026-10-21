@@ -447,11 +447,6 @@
                     <p class="text-sm font-semibold text-slate-700">Still to pay</p>
                     <p id="expense-due" class="text-xl font-bold text-amber-600">₹0</p>
                 </div>
-                <div class="p-4 bg-lime-50 rounded-xl shadow-sm w-full sm:w-auto min-w-[150px] text-center border border-lime-100">
-                    <p class="text-sm font-semibold text-slate-700">Left after expenses</p>
-                    <p id="expense-balance" class="text-xl font-bold text-lime-700">₹0</p>
-                    <p class="text-xs text-slate-400 mt-1">Donations minus actual spent</p>
-                </div>
             </div>
             <div id="expense-list"></div>
         </div>
@@ -466,11 +461,6 @@
                 <div class="p-4 bg-amber-50 rounded-xl shadow-sm w-full sm:w-auto min-w-[150px] text-center border border-amber-100">
                     <p class="text-sm font-semibold text-slate-700">Still to pay</p>
                     <p id="navratri-expense-due" class="text-xl font-bold text-amber-600">₹0</p>
-                </div>
-                <div class="p-4 bg-lime-50 rounded-xl shadow-sm w-full sm:w-auto min-w-[150px] text-center border border-lime-100">
-                    <p class="text-sm font-semibold text-slate-700">Left after expenses</p>
-                    <p id="navratri-expense-balance" class="text-xl font-bold text-lime-700">₹0</p>
-                    <p class="text-xs text-slate-400 mt-1">Donations minus actual spent</p>
                 </div>
             </div>
             <div id="navratri-expense-list"></div>
@@ -605,12 +595,10 @@
             const expenseList = document.getElementById('expense-list');
             const expenseActualEl = document.getElementById('expense-actual');
             const expenseDueEl = document.getElementById('expense-due');
-            const expenseBalanceEl = document.getElementById('expense-balance');
             const navratriExpenseListContainer = document.getElementById('navratri-expense-list-container');
             const navratriExpenseList = document.getElementById('navratri-expense-list');
             const navratriExpenseActualEl = document.getElementById('navratri-expense-actual');
             const navratriExpenseDueEl = document.getElementById('navratri-expense-due');
-            const navratriExpenseBalanceEl = document.getElementById('navratri-expense-balance');
             const summaryContentContainer = document.getElementById('summary-content-container');
             const totalDWingEl = document.getElementById('total-d-wing');
             const totalEWingEl = document.getElementById('total-e-wing');
@@ -1652,7 +1640,6 @@
                 const due = sumField(rows, 'ToBePaid');
                 const moneyRows = rows.filter(item => expenseStatus(item) !== 'none');
                 const spentCount = moneyRows.filter(item => rowActualExpense(item) > 0).length;
-                const collected = donationGrandTotal();
 
                 headlineLabel.textContent = `Total Expenses (${festivalLabel})`;
                 countPrefix.textContent = 'Spent';
@@ -1672,7 +1659,6 @@
 
                 ui.actualEl.textContent = rupees(actual);
                 ui.dueEl.textContent = rupees(due);
-                ui.balanceEl.textContent = rupees(collected - actual);
 
                 renderExpenseList(rows, ui.listEl);
                 updateDateStamp();
@@ -1682,7 +1668,6 @@
                 renderFestivalExpensesTab(sheetData.expenses, {
                     actualEl: expenseActualEl,
                     dueEl: expenseDueEl,
-                    balanceEl: expenseBalanceEl,
                     listEl: expenseList
                 }, 'Ganpati');
             }
@@ -1691,7 +1676,6 @@
                 renderFestivalExpensesTab(sheetData.navratriExpenses, {
                     actualEl: navratriExpenseActualEl,
                     dueEl: navratriExpenseDueEl,
-                    balanceEl: navratriExpenseBalanceEl,
                     listEl: navratriExpenseList
                 }, 'Navratri');
             }
